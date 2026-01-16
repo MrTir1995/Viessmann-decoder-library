@@ -1,0 +1,10 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: Viessmann Multi-Protocol Library
+Description: Multi-protocol library for Viessmann heating systems (VBUS, KW-Bus, P300, KM-Bus)
+Version: @PROJECT_VERSION@
+Cflags: -I${includedir}/viessmann
+Libs: -L${libdir} -lviessmann
