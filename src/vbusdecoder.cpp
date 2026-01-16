@@ -1,12 +1,14 @@
 /*
- * Resol VBUS decoder library v1.0
+ * Viessmann Multi-Protocol Library v2.0
  * Created by Martin Saidl January, 2018
+ * Extended for multi-protocol support January, 2026
  */
 #include "Arduino.h"
 #include "vbusdecoder.h"
 
 VBUSDecoder::VBUSDecoder(Stream* serial):
   _stream(serial),
+  _protocol(PROTOCOL_VBUS),
   _temp{0},
   _relay{0},
   _pump{0},
@@ -28,29 +30,95 @@ VBUSDecoder::VBUSDecoder(Stream* serial):
 VBUSDecoder::~VBUSDecoder()
   {}
   
-void VBUSDecoder::begin() {
+void VBUSDecoder::begin(ProtocolType protocol) {
+  _protocol = protocol;
   _lastMillis = millis();
   _state = SYNC;
 }
 
 void VBUSDecoder::loop() {
-    switch (_state) {
-    case SYNC:
-      _syncHandler();
+  // Dispatch to protocol-specific handlers based on selected protocol
+  switch (_protocol) {
+    case PROTOCOL_VBUS:
+      switch (_state) {
+        case SYNC:
+          _vbusSyncHandler();
+          break;
+        case RECEIVE:
+          _vbusReceiveHandler();
+          break;
+        case DECODE:
+          _vbusDecodeHandler();
+          break;
+        case ERROR:
+          _errorHandler();
+          break;
+        default:
+          _vbusSyncHandler();
+          break;
+      }
       break;
-    case RECEIVE:
-      _receiveHandler();
+      
+    case PROTOCOL_KW:
+      switch (_state) {
+        case SYNC:
+          _kwSyncHandler();
+          break;
+        case RECEIVE:
+          _kwReceiveHandler();
+          break;
+        case DECODE:
+          _kwDecodeHandler();
+          break;
+        case ERROR:
+          _errorHandler();
+          break;
+        default:
+          _kwSyncHandler();
+          break;
+      }
       break;
-    case DECODE:
-      _decodeHandler();
+      
+    case PROTOCOL_P300:
+      switch (_state) {
+        case SYNC:
+          _p300SyncHandler();
+          break;
+        case RECEIVE:
+          _p300ReceiveHandler();
+          break;
+        case DECODE:
+          _p300DecodeHandler();
+          break;
+        case ERROR:
+          _errorHandler();
+          break;
+        default:
+          _p300SyncHandler();
+          break;
+      }
       break;
-    case ERROR:
-      _errorHandler();
+      
+    case PROTOCOL_KM:
+      switch (_state) {
+        case SYNC:
+          _kmSyncHandler();
+          break;
+        case RECEIVE:
+          _kmReceiveHandler();
+          break;
+        case DECODE:
+          _kmDecodeHandler();
+          break;
+        case ERROR:
+          _errorHandler();
+          break;
+        default:
+          _kmSyncHandler();
+          break;
+      }
       break;
-    default:
-      _syncHandler();
-      break;
-  } 
+  }
 }
 
 const float VBUSDecoder::getTemp(uint8_t idx) const {
@@ -107,6 +175,10 @@ const uint8_t VBUSDecoder::getSystemVariant() const {
   return _systemVariant;
 }
 
+const ProtocolType VBUSDecoder::getProtocol() const {
+  return _protocol;
+}
+
 // CRC calculator - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Crc;
@@ -145,14 +217,14 @@ float VBUSDecoder::_calcTemp(uint8_t Byte1, uint8_t Byte2) {
 void VBUSDecoder::_headerDecoder() {
   _dstAddr = (_rcvBuffer[1] << 8) | _rcvBuffer[0];
   _srcAddr = (_rcvBuffer[3] << 8) | _rcvBuffer[2];
-  _protocol = (_rcvBuffer[4] >> 4) + (_rcvBuffer[4] & (1<<15)); 
+  _protocolVer = (_rcvBuffer[4] >> 4) + (_rcvBuffer[4] & (1<<15)); 
   _cmd = (_rcvBuffer[6] << 8) | _rcvBuffer[5];
   _frameCnt = _rcvBuffer[7];
   _frameLen = _rcvBuffer[7] * 6 + 10;  
 }
 
-//Sync handler
-void VBUSDecoder::_syncHandler() {
+//VBUS Sync handler
+void VBUSDecoder::_vbusSyncHandler() {
   if (millis() - _lastMillis > 20 * 1000UL) // if no packet arrived in last 20 sec go to error state
     _state = ERROR;
   if (_stream->available() > 0)
@@ -160,7 +232,7 @@ void VBUSDecoder::_syncHandler() {
       _rcvBufferIdx = 0;
       _dstAddr = 0;
       _srcAddr = 0;
-      _protocol = 0;
+      _protocolVer = 0;
       _cmd = 0;
       _frameCnt = 0;
       _frameLen = 0;
@@ -168,8 +240,8 @@ void VBUSDecoder::_syncHandler() {
     }  
 }
 
-// Receiving handler
-void VBUSDecoder::_receiveHandler() {
+// VBUS Receiving handler
+void VBUSDecoder::_vbusReceiveHandler() {
   uint8_t crc;
 
   while (_stream->available() > 0) {
@@ -190,7 +262,7 @@ void VBUSDecoder::_receiveHandler() {
     _headerDecoder();
 
     // Only protocol 1.0 will be decoded
-    if (_protocol != 1) {
+    if (_protocolVer != 1) {
       _state = SYNC;
       return; 
     }
@@ -223,8 +295,8 @@ void VBUSDecoder::_receiveHandler() {
   }
 }
 
-// Decoder handler
-void VBUSDecoder::_decodeHandler() {
+// VBUS Decoder handler
+void VBUSDecoder::_vbusDecodeHandler() {
 
   // Only packets carrying command 0x0100 - Master to slave are in focus
   if (_cmd == 0x0100) {
@@ -575,5 +647,290 @@ void VBUSDecoder::_deltaSolMXDecoder() {
     _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
     _errorMask = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
   }
+}
+
+// ============================================================================
+// KW-Bus (VS1) Protocol Handlers
+// ============================================================================
+
+// KW-Bus Sync handler
+// KW protocol uses 0x01 as sync byte followed by length
+void VBUSDecoder::_kwSyncHandler() {
+  if (millis() - _lastMillis > 20 * 1000UL) // if no packet arrived in last 20 sec go to error state
+    _state = ERROR;
+  if (_stream->available() > 0) {
+    uint8_t syncByte = _stream->read();
+    if (syncByte == 0x01) { // KW-Bus sync/start byte
+      _rcvBufferIdx = 0;
+      _rcvBuffer[_rcvBufferIdx++] = syncByte;
+      _state = RECEIVE;
+    }
+  }
+}
+
+// KW-Bus Receive handler
+// Format: 0x01 <len> <data...> <checksum>
+void VBUSDecoder::_kwReceiveHandler() {
+  while (_stream->available() > 0) {
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
+    
+    // Prevent buffer overflow
+    if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
+      _state = ERROR;
+      return;
+    }
+    
+    // Check if we have at least sync + length byte
+    if (_rcvBufferIdx >= 2) {
+      uint8_t expectedLen = _rcvBuffer[1];
+      
+      // Check if complete frame received (sync + len + data + checksum)
+      if (_rcvBufferIdx >= (expectedLen + 3)) {
+        // Simple checksum validation (XOR of all bytes except last should equal last byte)
+        uint8_t checksum = 0;
+        for (uint8_t i = 0; i < _rcvBufferIdx - 1; i++) {
+          checksum ^= _rcvBuffer[i];
+        }
+        
+        if (checksum == _rcvBuffer[_rcvBufferIdx - 1]) {
+          _errorFlag = false;
+          _lastMillis = millis();
+          _state = DECODE;
+          return;
+        } else {
+          _state = ERROR;
+          return;
+        }
+      }
+    }
+  }
+}
+
+// KW-Bus Decode handler
+void VBUSDecoder::_kwDecodeHandler() {
+  _kwDefaultDecoder();
+  _readyFlag = true;
+  _state = SYNC;
+}
+
+// KW-Bus default decoder
+// Extracts basic temperature and status data from KW protocol frames
+void VBUSDecoder::_kwDefaultDecoder() {
+  // KW protocol basic data extraction
+  // Format varies by device, this is a generic implementation
+  // Frame: 0x01 <len> <addr> <data...> <checksum>
+  
+  if (_rcvBufferIdx < 5) return; // Need at least: sync, len, addr, 1 data byte, checksum
+  
+  uint8_t dataLen = _rcvBuffer[1];
+  uint8_t addr = _rcvBuffer[2];
+  
+  // Extract temperatures if available (typically 2 bytes per temp, big-endian)
+  _tempNum = 0;
+  uint8_t dataIdx = 3; // Start after sync, len, addr
+  
+  while (dataIdx + 1 < _rcvBufferIdx - 1 && _tempNum < 4) {
+    int16_t tempRaw = (_rcvBuffer[dataIdx] << 8) | _rcvBuffer[dataIdx + 1];
+    _temp[_tempNum] = (float)tempRaw / 10.0; // Typical scaling for KW temps
+    _tempNum++;
+    dataIdx += 2;
+  }
+  
+  // Set minimal relay/pump info (protocol-specific decoding would go here)
+  _pumpNum = 0;
+  _relayNum = 0;
+}
+
+// ============================================================================
+// P300 (VS2/Optolink) Protocol Handlers
+// ============================================================================
+
+// P300 Sync handler
+// P300 uses 0x05 as sync/ack byte
+void VBUSDecoder::_p300SyncHandler() {
+  if (millis() - _lastMillis > 20 * 1000UL)
+    _state = ERROR;
+    
+  if (_stream->available() > 0) {
+    uint8_t syncByte = _stream->read();
+    if (syncByte == 0x05 || syncByte == 0x01) { // P300 response or request start
+      _rcvBufferIdx = 0;
+      _rcvBuffer[_rcvBufferIdx++] = syncByte;
+      _state = RECEIVE;
+    }
+  }
+}
+
+// P300 Receive handler
+// Format: <start> <len> <type> <addr_high> <addr_low> <data...> <checksum>
+void VBUSDecoder::_p300ReceiveHandler() {
+  while (_stream->available() > 0) {
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
+    
+    if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
+      _state = ERROR;
+      return;
+    }
+    
+    // P300 frames are typically: start(1) + len(1) + data(len) + checksum(1)
+    if (_rcvBufferIdx >= 3) {
+      uint8_t frameLen = _rcvBuffer[1];
+      
+      if (_rcvBufferIdx >= (frameLen + 3)) {
+        // Simple checksum validation (sum of all bytes except last should equal last)
+        uint8_t checksum = 0;
+        for (uint8_t i = 0; i < _rcvBufferIdx - 1; i++) {
+          checksum += _rcvBuffer[i];
+        }
+        
+        if (checksum == _rcvBuffer[_rcvBufferIdx - 1]) {
+          _errorFlag = false;
+          _lastMillis = millis();
+          _state = DECODE;
+          return;
+        } else {
+          _state = ERROR;
+          return;
+        }
+      }
+    }
+  }
+}
+
+// P300 Decode handler
+void VBUSDecoder::_p300DecodeHandler() {
+  _p300DefaultDecoder();
+  _readyFlag = true;
+  _state = SYNC;
+}
+
+// P300 default decoder
+// Extracts data from P300/Optolink protocol frames
+void VBUSDecoder::_p300DefaultDecoder() {
+  // P300 protocol data extraction
+  // Format: <start> <len> <type> <addr_high> <addr_low> <data...> <checksum>
+  
+  if (_rcvBufferIdx < 6) return; // Minimum frame size
+  
+  uint8_t frameType = _rcvBuffer[2];
+  uint16_t dataAddr = (_rcvBuffer[3] << 8) | _rcvBuffer[4];
+  uint8_t dataLen = _rcvBuffer[1] - 3; // len includes type and addr bytes
+  
+  // Extract temperature values from common P300 datapoints
+  // This is a simplified decoder - real implementation would use datapoint tables
+  _tempNum = 0;
+  
+  if (dataLen >= 2 && _tempNum < 4) {
+    // Extract up to 4 temperature values
+    uint8_t dataIdx = 5;
+    while (dataIdx + 1 < _rcvBufferIdx - 1 && _tempNum < 4) {
+      int16_t tempRaw = (_rcvBuffer[dataIdx] << 8) | _rcvBuffer[dataIdx + 1];
+      _temp[_tempNum] = (float)tempRaw / 10.0;
+      _tempNum++;
+      dataIdx += 2;
+    }
+  }
+  
+  _pumpNum = 0;
+  _relayNum = 0;
+}
+
+// ============================================================================
+// KM-Bus Protocol Handlers
+// ============================================================================
+
+// KM-Bus Sync handler
+// KM-Bus is similar to M-Bus with specific framing
+void VBUSDecoder::_kmSyncHandler() {
+  if (millis() - _lastMillis > 20 * 1000UL)
+    _state = ERROR;
+    
+  if (_stream->available() > 0) {
+    uint8_t syncByte = _stream->read();
+    if (syncByte == 0x68) { // M-Bus/KM-Bus start byte
+      _rcvBufferIdx = 0;
+      _rcvBuffer[_rcvBufferIdx++] = syncByte;
+      _state = RECEIVE;
+    }
+  }
+}
+
+// KM-Bus Receive handler
+// Format: 0x68 <len> <len> 0x68 <data...> <checksum> 0x16
+void VBUSDecoder::_kmReceiveHandler() {
+  while (_stream->available() > 0) {
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
+    
+    if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
+      _state = ERROR;
+      return;
+    }
+    
+    // KM-Bus long frame: 0x68 L L 0x68 ... CS 0x16
+    if (_rcvBufferIdx >= 4 && _rcvBuffer[0] == 0x68) {
+      if (_rcvBuffer[3] != 0x68) {
+        _state = ERROR;
+        return;
+      }
+      
+      uint8_t frameLen = _rcvBuffer[1];
+      if (_rcvBuffer[1] != _rcvBuffer[2]) { // Length bytes must match
+        _state = ERROR;
+        return;
+      }
+      
+      // Check if full frame received
+      if (_rcvBufferIdx >= (frameLen + 6)) { // 4 header + len + checksum + stop
+        uint8_t stopByte = _rcvBuffer[_rcvBufferIdx - 1];
+        if (stopByte != 0x16) {
+          _state = ERROR;
+          return;
+        }
+        
+        // Checksum validation
+        uint8_t checksum = 0;
+        for (uint8_t i = 4; i < _rcvBufferIdx - 2; i++) {
+          checksum += _rcvBuffer[i];
+        }
+        
+        if (checksum == _rcvBuffer[_rcvBufferIdx - 2]) {
+          _errorFlag = false;
+          _lastMillis = millis();
+          _state = DECODE;
+          return;
+        } else {
+          _state = ERROR;
+          return;
+        }
+      }
+    }
+  }
+}
+
+// KM-Bus Decode handler
+void VBUSDecoder::_kmDecodeHandler() {
+  _kmDefaultDecoder();
+  _readyFlag = true;
+  _state = SYNC;
+}
+
+// KM-Bus default decoder
+// PLACEHOLDER IMPLEMENTATION - KM-Bus protocol requires detailed specification
+// This decoder currently does not extract any meaningful data
+void VBUSDecoder::_kmDefaultDecoder() {
+  // KM-Bus protocol data extraction not yet implemented
+  // Real implementation requires detailed protocol specification from Viessmann
+  
+  if (_rcvBufferIdx < 8) return;
+  
+  // No data extracted - KM-Bus protocol needs complete specification
+  _tempNum = 0;
+  _pumpNum = 0;
+  _relayNum = 0;
+  
+  // TODO: Implement KM-Bus data extraction when protocol specification is available
 }
 
