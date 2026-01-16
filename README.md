@@ -2,7 +2,9 @@
 
 A comprehensive Arduino library for communicating with Viessmann heating systems using multiple protocols. This library supports modern and legacy Viessmann communication protocols, enabling integration with a wide range of heating controllers and solar regulators.
 
-**⚡ NEW:** Linux support now available! See [Linux Installation Guide](linux/README_LINUX.md) for Debian-based systems.
+**⚡ NEW:** 
+- **Linux support** now available! See [Linux Installation Guide](linux/README_LINUX.md) for Debian-based systems.
+- **Windows support** now available! See [Windows Installation Guide](windows/README_WINDOWS.md) for Windows 10/11.
 
 ## Supported Protocols
 
@@ -179,6 +181,32 @@ vbusdecoder_linux -p /dev/ttyUSB0 -b 9600 -t vbus
 ```
 
 For complete Linux installation and usage instructions, see [Linux Installation Guide](linux/README_LINUX.md).
+
+## Windows Support
+
+This library can now be used on Windows systems (Windows 10/11) without Arduino hardware!
+
+The Windows port provides:
+- **Native Windows executable** - No Arduino IDE required
+- **Command-line tools** - Ready-to-use example applications
+- **Multiple build options** - Support for MinGW, Visual Studio, and CMake
+- **Easy building** - Automated build scripts for quick setup
+- **Full protocol support** - All protocols (VBUS, KW-Bus, P300, KM-Bus) work on Windows
+
+### Quick Start (Windows)
+
+Using MinGW:
+```batch
+cd windows
+build_mingw.bat
+```
+
+Then run:
+```batch
+build\bin\vbusdecoder_windows.exe -p COM1 -b 9600 -t vbus
+```
+
+For complete Windows installation and usage instructions, see [Windows Installation Guide](windows/README_WINDOWS.md).
 
 ## Contributing
 
