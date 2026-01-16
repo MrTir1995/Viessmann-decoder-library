@@ -51,6 +51,12 @@ void printHelp(const char* progname) {
     printf("  kw    - KW-Bus (VS1) for Vitotronic 100/200/300 - 4800 baud, 8E2\n");
     printf("  p300  - P300/VS2 (Optolink) for newer Vitodens - 4800 baud, 8E2\n");
     printf("  km    - KM-Bus for remote controls and modules - varies\n");
+    printf("\nFeatures:\n");
+    printf("  - Automatic bus participant discovery (enabled by default)\n");
+    printf("  - Real-time monitoring of all detected devices\n");
+    printf("  - Manual device configuration supported via API\n");
+}
+    printf("  km    - KM-Bus for remote controls and modules - varies\n");
 }
 
 ProtocolType parseProtocol(const char* str) {
@@ -156,9 +162,30 @@ int main(int argc, char* argv[]) {
                     firstData = false;
                 }
                 
+                // Display discovered bus participants
+                uint8_t participantCount = vbus.getParticipantCount();
+                if (participantCount > 0) {
+                    printf("=== Discovered Bus Participants: %d ===\n", participantCount);
+                    for (uint8_t i = 0; i < participantCount; i++) {
+                        const BusParticipant* p = vbus.getParticipant(i);
+                        if (p != nullptr) {
+                            printf("  [%d] Address: 0x%04X, Name: %s\n", i + 1, p->address, p->name);
+                            printf("      Channels: Temp=%d, Pump=%d, Relay=%d\n", 
+                                   p->tempChannels, p->pumpChannels, p->relayChannels);
+                            printf("      Status: %s, Last seen: %lu ms ago\n",
+                                   p->autoDetected ? "Auto-detected" : "Manual",
+                                   (unsigned long)(millis() - p->lastSeen));
+                        }
+                    }
+                    printf("\n");
+                }
+                
                 uint8_t tempNum = vbus.getTempNum();
                 uint8_t relayNum = vbus.getRelayNum();
                 uint8_t pumpNum = vbus.getPumpNum();
+                
+                // Current device data
+                printf("=== Current Device (0x%04X) ===\n", vbus.getCurrentSourceAddress());
                 
                 // Temperature sensors
                 if (tempNum > 0) {

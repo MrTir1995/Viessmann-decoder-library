@@ -24,8 +24,22 @@ VBUSDecoder::VBUSDecoder(Stream* serial):
   _systemTime(0),
   _operatingHours{0},
   _heatQuantity(0),
-  _systemVariant(0)
-  {}  
+  _systemVariant(0),
+  _participantCount(0),
+  _autoDiscoveryEnabled(true)
+  {
+    // Initialize participants array
+    for (uint8_t i = 0; i < MAX_PARTICIPANTS; i++) {
+      _participants[i].address = 0;
+      _participants[i].lastSeen = 0;
+      _participants[i].tempChannels = 0;
+      _participants[i].pumpChannels = 0;
+      _participants[i].relayChannels = 0;
+      _participants[i].autoDetected = false;
+      _participants[i].name[0] = '\0';
+      _participants[i].active = false;
+    }
+  }  
 
 VBUSDecoder::~VBUSDecoder()
   {}
@@ -179,7 +193,7 @@ const ProtocolType VBUSDecoder::getProtocol() const {
   return _protocol;
 }
 
-// CRC calculator - coming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
+// CRC calculator - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Crc;
     uint8_t i;
@@ -190,7 +204,7 @@ uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Len
     return Crc;
 }
 
-// Septet injection - coming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
+// Septed injection - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 void VBUSDecoder::_septetInject(uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Septett;
     uint8_t i;
@@ -203,7 +217,7 @@ void VBUSDecoder::_septetInject(uint8_t *Buffer, uint8_t Offset, uint8_t Length)
     }
 }
 
-// Temperature calculation - coming from: https://github.com/bbqkees/vbus-arduino-domoticz/blob/master/ArduinoVBusDecoder.ino
+// Temperature calculation - comming from: https://github.com/bbqkees/vbus-arduino-domoticz/blob/master/ArduinoVBusDecoder.ino
 // It converts 2 data bytes to temperature
 float VBUSDecoder::_calcTemp(uint8_t Byte1, uint8_t Byte2) {
   int16_t v;
@@ -298,6 +312,11 @@ void VBUSDecoder::_vbusReceiveHandler() {
 // VBUS Decoder handler
 void VBUSDecoder::_vbusDecodeHandler() {
 
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+
   // Only packets carrying command 0x0100 - Master to slave are in focus
   if (_cmd == 0x0100) {
 
@@ -333,7 +352,7 @@ void VBUSDecoder::_errorHandler() {
 // Frame decoders for unique devices
 // thank to Bbqkees - https://github.com/bbqkees/vbus-arduino-domoticz/blob/master/ArduinoVBusDecoder.ino
 
-// Default decoder for common RESOL devices
+// Default decoder for commn RESOL devices
 void VBUSDecoder::_defaultDecoder() {
 
   // Default temp 1-4 extraction
@@ -672,14 +691,14 @@ void VBUSDecoder::_kwSyncHandler() {
 // Format: 0x01 <len> <data...> <checksum>
 void VBUSDecoder::_kwReceiveHandler() {
   while (_stream->available() > 0) {
-    // Prevent buffer overflow - check before writing
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
+    
+    // Prevent buffer overflow
     if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
-    
-    uint8_t rcvByte = _stream->read();
-    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
     
     // Check if we have at least sync + length byte
     if (_rcvBufferIdx >= 2) {
@@ -709,6 +728,11 @@ void VBUSDecoder::_kwReceiveHandler() {
 
 // KW-Bus Decode handler
 void VBUSDecoder::_kwDecodeHandler() {
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+  
   _kwDefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -801,6 +825,11 @@ void VBUSDecoder::_p300ReceiveHandler() {
 
 // P300 Decode handler
 void VBUSDecoder::_p300DecodeHandler() {
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+  
   _p300DefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -912,6 +941,11 @@ void VBUSDecoder::_kmReceiveHandler() {
 
 // KM-Bus Decode handler
 void VBUSDecoder::_kmDecodeHandler() {
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+  
   _kmDefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -932,5 +966,205 @@ void VBUSDecoder::_kmDefaultDecoder() {
   _relayNum = 0;
   
   // TODO: Implement KM-Bus data extraction when protocol specification is available
+}
+
+// Bus participant discovery and management functions
+
+// Enable or disable automatic discovery of bus participants
+void VBUSDecoder::enableAutoDiscovery(bool enable) {
+  _autoDiscoveryEnabled = enable;
+}
+
+// Check if auto-discovery is enabled
+bool VBUSDecoder::isAutoDiscoveryEnabled() const {
+  return _autoDiscoveryEnabled;
+}
+
+// Get the number of discovered/configured participants
+uint8_t VBUSDecoder::getParticipantCount() const {
+  return _participantCount;
+}
+
+// Get participant by index
+const BusParticipant* VBUSDecoder::getParticipant(uint8_t idx) const {
+  if (idx >= _participantCount) return nullptr;
+  return &_participants[idx];
+}
+
+// Get participant by address
+const BusParticipant* VBUSDecoder::getParticipantByAddress(uint16_t address) const {
+  int8_t idx = _findParticipantIndex(address);
+  if (idx < 0) return nullptr;
+  return &_participants[idx];
+}
+
+// Get current source address from last received packet
+uint16_t VBUSDecoder::getCurrentSourceAddress() const {
+  return _srcAddr;
+}
+
+// Manually add a bus participant
+bool VBUSDecoder::addParticipant(uint16_t address, const char* name,
+                                  uint8_t tempChannels, uint8_t pumpChannels,
+                                  uint8_t relayChannels) {
+  if (_participantCount >= MAX_PARTICIPANTS) return false;
+  if (address == 0) return false;
+  
+  // Check if participant already exists
+  int8_t existingIdx = _findParticipantIndex(address);
+  if (existingIdx >= 0) {
+    // Update existing participant
+    BusParticipant* p = &_participants[existingIdx];
+    if (name != nullptr) {
+      strncpy(p->name, name, sizeof(p->name) - 1);
+      p->name[sizeof(p->name) - 1] = '\0';
+    }
+    if (tempChannels > 0) p->tempChannels = tempChannels;
+    if (pumpChannels > 0) p->pumpChannels = pumpChannels;
+    if (relayChannels > 0) p->relayChannels = relayChannels;
+    p->autoDetected = false;
+    p->active = true;
+    return true;
+  }
+  
+  // Add new participant
+  BusParticipant* p = &_participants[_participantCount];
+  p->address = address;
+  p->lastSeen = millis();
+  p->tempChannels = tempChannels;
+  p->pumpChannels = pumpChannels;
+  p->relayChannels = relayChannels;
+  p->autoDetected = false;
+  p->active = true;
+  
+  if (name != nullptr) {
+    strncpy(p->name, name, sizeof(p->name) - 1);
+    p->name[sizeof(p->name) - 1] = '\0';
+  } else {
+    snprintf(p->name, sizeof(p->name), "Device_0x%04X", address);
+  }
+  
+  // Auto-configure channels if not specified
+  if (tempChannels == 0 && pumpChannels == 0 && relayChannels == 0) {
+    _configureParticipantChannels(p, address);
+  }
+  
+  _participantCount++;
+  return true;
+}
+
+// Remove a bus participant
+bool VBUSDecoder::removeParticipant(uint16_t address) {
+  int8_t idx = _findParticipantIndex(address);
+  if (idx < 0) return false;
+  
+  // Shift remaining participants down
+  for (uint8_t i = idx; i < _participantCount - 1; i++) {
+    _participants[i] = _participants[i + 1];
+  }
+  
+  _participantCount--;
+  
+  // Clear the last slot
+  _participants[_participantCount].address = 0;
+  _participants[_participantCount].active = false;
+  
+  return true;
+}
+
+// Clear all participants
+void VBUSDecoder::clearParticipants() {
+  for (uint8_t i = 0; i < MAX_PARTICIPANTS; i++) {
+    _participants[i].address = 0;
+    _participants[i].lastSeen = 0;
+    _participants[i].tempChannels = 0;
+    _participants[i].pumpChannels = 0;
+    _participants[i].relayChannels = 0;
+    _participants[i].autoDetected = false;
+    _participants[i].name[0] = '\0';
+    _participants[i].active = false;
+  }
+  _participantCount = 0;
+}
+
+// Internal function to update or add a participant (auto-discovery)
+void VBUSDecoder::_updateParticipant(uint16_t address) {
+  if (!_autoDiscoveryEnabled) return;
+  if (address == 0) return;
+  
+  int8_t idx = _findParticipantIndex(address);
+  
+  if (idx >= 0) {
+    // Update existing participant
+    _participants[idx].lastSeen = millis();
+    _participants[idx].active = true;
+  } else {
+    // Add new participant if there's room
+    if (_participantCount < MAX_PARTICIPANTS) {
+      BusParticipant* p = &_participants[_participantCount];
+      p->address = address;
+      p->lastSeen = millis();
+      p->autoDetected = true;
+      p->active = true;
+      
+      // Auto-configure based on known device addresses
+      _configureParticipantChannels(p, address);
+      
+      // Generate default name
+      snprintf(p->name, sizeof(p->name), "Device_0x%04X", address);
+      
+      _participantCount++;
+    }
+  }
+}
+
+// Internal function to find participant index by address
+int8_t VBUSDecoder::_findParticipantIndex(uint16_t address) const {
+  for (uint8_t i = 0; i < _participantCount; i++) {
+    if (_participants[i].address == address && _participants[i].active) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Internal function to configure participant channels based on known device addresses
+void VBUSDecoder::_configureParticipantChannels(BusParticipant* participant, uint16_t address) {
+  // Configure based on known VBUS device addresses
+  switch (address) {
+    case 0x1060:  // Vitosolic 200
+      participant->tempChannels = 12;
+      participant->pumpChannels = 0;
+      participant->relayChannels = 7;
+      strncpy(participant->name, "Vitosolic 200", sizeof(participant->name) - 1);
+      break;
+      
+    case 0x7E11:  // DeltaSol BX Plus
+      participant->tempChannels = 6;
+      participant->pumpChannels = 2;
+      participant->relayChannels = 0;
+      strncpy(participant->name, "DeltaSol BX Plus", sizeof(participant->name) - 1);
+      break;
+      
+    case 0x7E21:  // DeltaSol BX
+      participant->tempChannels = 6;
+      participant->pumpChannels = 2;
+      participant->relayChannels = 0;
+      strncpy(participant->name, "DeltaSol BX", sizeof(participant->name) - 1);
+      break;
+      
+    case 0x7E31:  // DeltaSol MX
+      participant->tempChannels = 4;
+      participant->pumpChannels = 4;
+      participant->relayChannels = 0;
+      strncpy(participant->name, "DeltaSol MX", sizeof(participant->name) - 1);
+      break;
+      
+    default:  // Unknown device - use defaults
+      participant->tempChannels = 4;
+      participant->pumpChannels = 2;
+      participant->relayChannels = 2;
+      break;
+  }
 }
 

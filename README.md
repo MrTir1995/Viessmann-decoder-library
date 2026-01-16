@@ -15,7 +15,16 @@ A comprehensive Arduino library for communicating with Viessmann heating systems
 
 ## Features
 
-Current version 2.0.0+ provides multi-protocol support with the following capabilities:
+Current version 2.1.0+ provides multi-protocol support with the following capabilities:
+
+### Bus Participant Discovery (NEW in v2.1)
+- **Automatic discovery** - Automatically detects all devices on the bus
+- **Manual configuration** - Add and configure devices manually
+- **Device identification** - Recognizes known device types (Vitosolic 200, DeltaSol BX/MX, etc.)
+- **Real-time monitoring** - Track up to 16 bus participants simultaneously
+- **Status tracking** - Monitor last seen time and device status
+
+See [Bus Participant Discovery Guide](doc/BUS_PARTICIPANT_DISCOVERY.md) for details.
 
 ### Supported Data Fields
 - **Temperature sensors** (up to 32 channels)

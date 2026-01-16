@@ -18,6 +18,18 @@ enum ProtocolType: uint8_t {
   PROTOCOL_KM = 3       // Viessmann KM-Bus
 };
 
+// Bus participant information structure
+struct BusParticipant {
+  uint16_t address;           // Device address
+  uint32_t lastSeen;          // Last time packet was received (millis)
+  uint8_t tempChannels;       // Number of temperature channels
+  uint8_t pumpChannels;       // Number of pump channels
+  uint8_t relayChannels;      // Number of relay channels
+  bool autoDetected;          // True if auto-detected, false if manually configured
+  char name[32];              // Device name/description
+  bool active;                // True if participant is active
+};
+
 class VBUSDecoder {
   
   public:
@@ -40,6 +52,19 @@ class VBUSDecoder {
     uint16_t const getHeatQuantity() const;
     uint8_t const getSystemVariant() const;
     ProtocolType const getProtocol() const;
+    
+    // Bus participant discovery and management
+    void enableAutoDiscovery(bool enable = true);
+    bool isAutoDiscoveryEnabled() const;
+    uint8_t getParticipantCount() const;
+    const BusParticipant* getParticipant(uint8_t idx) const;
+    const BusParticipant* getParticipantByAddress(uint16_t address) const;
+    bool addParticipant(uint16_t address, const char* name = nullptr, 
+                       uint8_t tempChannels = 0, uint8_t pumpChannels = 0, 
+                       uint8_t relayChannels = 0);
+    bool removeParticipant(uint16_t address);
+    void clearParticipants();
+    uint16_t getCurrentSourceAddress() const;
 
   private:
     Stream* _stream;
@@ -73,6 +98,16 @@ class VBUSDecoder {
     uint32_t _operatingHours[8];
     uint16_t _heatQuantity;
     uint8_t _systemVariant;
+    
+    // Bus participant discovery
+    static const uint8_t MAX_PARTICIPANTS = 16;
+    BusParticipant _participants[MAX_PARTICIPANTS];
+    uint8_t _participantCount;
+    bool _autoDiscoveryEnabled;
+    
+    void _updateParticipant(uint16_t address);
+    int8_t _findParticipantIndex(uint16_t address) const;
+    void _configureParticipantChannels(BusParticipant* participant, uint16_t address);
     
     // Common utility functions
     uint8_t _calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length);
