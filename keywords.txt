@@ -3,6 +3,7 @@
 #######################################
 
 VBUSDecoder	KEYWORD1
+ProtocolType	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -18,7 +19,13 @@ getPumpNum	KEYWORD2
 getRelayNum	KEYWORD2
 getVbusStat	KEYWORD2
 isReady		KEYWORD2
+getProtocol	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
 #######################################
+
+PROTOCOL_VBUS	LITERAL1
+PROTOCOL_KW	LITERAL1
+PROTOCOL_P300	LITERAL1
+PROTOCOL_KM	LITERAL1

@@ -8,10 +8,32 @@ uint32_t lastMillis = millis();
 
 void setup() {
   vbusSerial.begin(9600);
-  vbus.begin();
+  
+  // Initialize with desired protocol:
+  // PROTOCOL_VBUS - for RESOL VBUS devices (Vitosolic, DeltaSol)
+  // PROTOCOL_KW - for KW-Bus Viessmann devices
+  // PROTOCOL_P300 - for P300/Optolink Viessmann devices (use 4800 baud, 8E2)
+  // PROTOCOL_KM - for KM-Bus Viessmann devices
+  vbus.begin(PROTOCOL_VBUS);  // Default is VBUS
   
   Serial.begin(115200);
-  Serial.println(F("Starting test of VBUS code.")); 
+  Serial.println(F("Starting Viessmann Multi-Protocol Library test."));
+  
+  // Display active protocol
+  switch(vbus.getProtocol()) {
+    case PROTOCOL_VBUS:
+      Serial.println(F("Active Protocol: VBUS (RESOL)"));
+      break;
+    case PROTOCOL_KW:
+      Serial.println(F("Active Protocol: KW-Bus (VS1)"));
+      break;
+    case PROTOCOL_P300:
+      Serial.println(F("Active Protocol: P300 (VS2/Optolink)"));
+      break;
+    case PROTOCOL_KM:
+      Serial.println(F("Active Protocol: KM-Bus"));
+      break;
+  }
 }
 
 void loop() {
