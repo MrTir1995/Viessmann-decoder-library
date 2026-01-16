@@ -25,6 +25,11 @@ class VBUSDecoder {
     uint8_t const getPumpNum() const;
     bool const getVbusStat() const;
     bool const isReady() const;
+    uint16_t const getErrorMask() const;
+    uint16_t const getSystemTime() const;
+    uint32_t const getOperatingHours(uint8_t idx) const;
+    uint16_t const getHeatQuantity() const;
+    uint8_t const getSystemVariant() const;
 
   private:
     Stream* _stream;
@@ -51,6 +56,11 @@ class VBUSDecoder {
     uint8_t _relayNum;
     uint8_t _pumpNum;
     uint32_t _lastMillis;
+    uint16_t _errorMask;
+    uint16_t _systemTime;
+    uint32_t _operatingHours[8];
+    uint16_t _heatQuantity;
+    uint8_t _systemVariant;
     
     uint8_t _calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length);
     void _septetInject(uint8_t *Buffer, uint8_t Offset, uint8_t Length);
@@ -64,6 +74,8 @@ class VBUSDecoder {
 
     void _defaultDecoder();
     void _vitosolic200Decoder();
+    void _deltaSolBXDecoder();
+    void _deltaSolMXDecoder();
 };
 
 #endif

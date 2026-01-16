@@ -17,7 +17,12 @@ VBUSDecoder::VBUSDecoder(Stream* serial):
   _readyFlag(false),
   _rcvBuffer{0},
   _rcvBufferIdx(0),
-  _state(SYNC)
+  _state(SYNC),
+  _errorMask(0),
+  _systemTime(0),
+  _operatingHours{0},
+  _heatQuantity(0),
+  _systemVariant(0)
   {}  
 
 VBUSDecoder::~VBUSDecoder()
@@ -78,6 +83,28 @@ const bool VBUSDecoder::getVbusStat() const {
 
 const bool VBUSDecoder::isReady() const {
   return _readyFlag;
+}
+
+const uint16_t VBUSDecoder::getErrorMask() const {
+  return _errorMask;
+}
+
+const uint16_t VBUSDecoder::getSystemTime() const {
+  return _systemTime;
+}
+
+const uint32_t VBUSDecoder::getOperatingHours(uint8_t idx) const {
+  if (idx < 8)
+    return _operatingHours[idx];
+  return 0;
+}
+
+const uint16_t VBUSDecoder::getHeatQuantity() const {
+  return _heatQuantity;
+}
+
+const uint8_t VBUSDecoder::getSystemVariant() const {
+  return _systemVariant;
 }
 
 // CRC calculator - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
@@ -199,18 +226,26 @@ void VBUSDecoder::_receiveHandler() {
 // Decoder handler
 void VBUSDecoder::_decodeHandler() {
 
-  // Only packets carring comman 0x0100 - Master to slave are in focuse
+  // Only packets carrying command 0x0100 - Master to slave are in focus
   if (_cmd == 0x0100) {
 
     switch (_srcAddr) {
       case 0x1060:  // Vitosolic 200
-      _vitosolic200Decoder();
-      break;
-      default: // General RESOL device
-      _defaultDecoder();
+        _vitosolic200Decoder();
+        break;
+      case 0x7E11:  // DeltaSol BX Plus
+      case 0x7E21:  // DeltaSol BX
+        _deltaSolBXDecoder();
+        break;
+      case 0x7E31:  // DeltaSol MX
+        _deltaSolMXDecoder();
+        break;
+      default:      // General RESOL device
+        _defaultDecoder();
+        break;
     }
 
-    _readyFlag =  true;
+    _readyFlag = true;
     _state = SYNC;  
   }
 }
@@ -295,7 +330,7 @@ void VBUSDecoder::_vitosolic200Decoder() {
   //20                  Temperature S11     1.0         °C  
   //21                  Temperature S11     256.0       °C
   //22                  Temperature S12     1.0         °C
-  //23                  Temperature S11     256.0       °C
+  //23                  Temperature S12     256.0       °C
 
   //44                  Relay 1             1           %
   //45                  Relay 2             1           %
@@ -305,6 +340,12 @@ void VBUSDecoder::_vitosolic200Decoder() {
   //49                  Relay 6             1           %
   //50                  Relay 7             1           %
   
+  //52                  Error mask          1           -
+  //53                  Error mask          256         -
+  //54                  System time         1           min
+  //55                  System time         256         min
+  //56                  System variant      1           -
+
   // Each frame has 6 bytes
   // byte 1 to 4 are data bytes -> MSB of each bytes
   // byte 5 is a septet and contains MSB of bytes 1 to 4
@@ -314,61 +355,225 @@ void VBUSDecoder::_vitosolic200Decoder() {
   
   _tempNum = 12;
   _relayNum = 7;
-  _pumpNum = 4;
+  _pumpNum = 7;
   
+  // Frame 1: Temperatures S1-S2
   _rcvBufferIdx = 9;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
   _temp[0] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
   _temp[1] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
 
+  // Frame 2: Temperatures S3-S4
   _rcvBufferIdx = 15;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
   _temp[2] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
   _temp[3] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
 
+  // Frame 3: Temperatures S5-S6
   _rcvBufferIdx = 21;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
   _temp[4] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
   _temp[5] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
 
+  // Frame 4: Temperatures S7-S8
   _rcvBufferIdx = 27;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
   _temp[6] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
   _temp[7] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
 
+  // Frame 5: Temperatures S9-S10
   _rcvBufferIdx = 33;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
   _temp[8] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
   _temp[9] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
 
+  // Frame 6: Temperatures S11-S12
   _rcvBufferIdx = 39;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
   _temp[10] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
   _temp[11] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
 
+  // Frame 12: Pump/Relay data 1-4
   _rcvBufferIdx = 75;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4); 
   
-  _pump[0] =  _rcvBuffer[_rcvBufferIdx] & 0X7F;
-  _pump[1] =  _rcvBuffer[_rcvBufferIdx + 1] & 0X7F;
-  _pump[2] =  _rcvBuffer[_rcvBufferIdx + 2] & 0X7F;
-  _pump[3] =  _rcvBuffer[_rcvBufferIdx + 3] & 0X7F;
+  _pump[0] = _rcvBuffer[_rcvBufferIdx] & 0x7F;
+  _pump[1] = _rcvBuffer[_rcvBufferIdx + 1] & 0x7F;
+  _pump[2] = _rcvBuffer[_rcvBufferIdx + 2] & 0x7F;
+  _pump[3] = _rcvBuffer[_rcvBufferIdx + 3] & 0x7F;
 
+  // Frame 13: Pump/Relay data 5-7 + Error mask byte 1
   _rcvBufferIdx = 81;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
   
-  _pump[4] =  _rcvBuffer[_rcvBufferIdx] & 0X7F;
-  _pump[5] =  _rcvBuffer[_rcvBufferIdx + 1] & 0X7F;
-  _pump[6] =  _rcvBuffer[_rcvBufferIdx + 2] & 0X7F;
+  _pump[4] = _rcvBuffer[_rcvBufferIdx] & 0x7F;
+  _pump[5] = _rcvBuffer[_rcvBufferIdx + 1] & 0x7F;
+  _pump[6] = _rcvBuffer[_rcvBufferIdx + 2] & 0x7F;
 
+  // Frame 14: Error mask + System time + System variant
+  _rcvBufferIdx = 87;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    
+    // Error mask (2 bytes)
+    _errorMask = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
+    
+    // System time in minutes (2 bytes)
+    _systemTime = (_rcvBuffer[_rcvBufferIdx + 3] << 8) | _rcvBuffer[_rcvBufferIdx + 2];
+  }
+
+  // Frame 15: System variant
+  _rcvBufferIdx = 93;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _systemVariant = _rcvBuffer[_rcvBufferIdx] & 0x7F;
+  }
+
+  // Calculate relay states from pump values (100% = ON)
   for (uint8_t i = 0; i < 7; i++)
-    _relay[i] = (_pump[i] == 0x64)?true:false;
+    _relay[i] = (_pump[i] == 0x64) ? true : false;
+    
   ///******************* End of frames ****************
+}
+
+// DeltaSol BX / BX Plus decoder
+void VBUSDecoder::_deltaSolBXDecoder() {
+  // DeltaSol BX common data structure
+  //Offset  Name                    Factor  Unit
+  //0       Temperature S1          0.1     °C
+  //2       Temperature S2          0.1     °C
+  //4       Temperature S3          0.1     °C
+  //6       Temperature S4          0.1     °C
+  //8       Temperature S5          0.1     °C
+  //10      Temperature S6          0.1     °C
+  //12      VFD1 (Volume flow)      1.0     l/h
+  //16      VFD2 (Volume flow)      1.0     l/h
+  //20      Pump speed 1            1       %
+  //21      Pump speed 2            1       %
+  //22      Operating hours 1       1       h
+  //24      Operating hours 2       1       h
+  //26      Heat quantity           1       Wh
+  //28      Software version        0.01    -
+
+  _tempNum = 6;
+  _pumpNum = 2;
+  _relayNum = 2;
+
+  // Frame 1: Temperatures S1-S2
+  _rcvBufferIdx = 9;
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+  _temp[0] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
+  _temp[1] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
+
+  // Frame 2: Temperatures S3-S4
+  _rcvBufferIdx = 15;
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+  _temp[2] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
+  _temp[3] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
+
+  // Frame 3: Temperatures S5-S6
+  _rcvBufferIdx = 21;
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+  _temp[4] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
+  _temp[5] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
+
+  // Frame 5: Pump speeds and relay states
+  _rcvBufferIdx = 33;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _pump[0] = _rcvBuffer[_rcvBufferIdx] & 0x7F;
+    _pump[1] = _rcvBuffer[_rcvBufferIdx + 1] & 0x7F;
+    _relay[0] = (_pump[0] > 0);
+    _relay[1] = (_pump[1] > 0);
+  }
+
+  // Frame 6: Operating hours
+  _rcvBufferIdx = 39;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _operatingHours[0] = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
+    _operatingHours[1] = (_rcvBuffer[_rcvBufferIdx + 3] << 8) | _rcvBuffer[_rcvBufferIdx + 2];
+  }
+
+  // Frame 7: Heat quantity
+  _rcvBufferIdx = 45;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _heatQuantity = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
+  }
+}
+
+// DeltaSol MX decoder
+void VBUSDecoder::_deltaSolMXDecoder() {
+  // DeltaSol MX common data structure
+  //Offset  Name                    Factor  Unit
+  //0       Temperature S1          0.1     °C
+  //2       Temperature S2          0.1     °C
+  //4       Temperature S3          0.1     °C
+  //6       Temperature S4          0.1     °C
+  //8       Pump speed 1            1       %
+  //9       Pump speed 2            1       %
+  //10      Pump speed 3            1       %
+  //11      Pump speed 4            1       %
+  //12      Operating hours 1       1       h
+  //14      Operating hours 2       1       h
+  //16      Heat quantity           1       Wh
+  //20      Error mask              1       -
+
+  _tempNum = 4;
+  _pumpNum = 4;
+  _relayNum = 4;
+
+  // Frame 1: Temperatures S1-S2
+  _rcvBufferIdx = 9;
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+  _temp[0] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
+  _temp[1] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
+
+  // Frame 2: Temperatures S3-S4
+  _rcvBufferIdx = 15;
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+  _temp[2] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 1], _rcvBuffer[_rcvBufferIdx]);
+  _temp[3] = _calcTemp(_rcvBuffer[_rcvBufferIdx + 3], _rcvBuffer[_rcvBufferIdx + 2]);
+
+  // Frame 3: Pump speeds
+  _rcvBufferIdx = 21;
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+  _pump[0] = _rcvBuffer[_rcvBufferIdx] & 0x7F;
+  _pump[1] = _rcvBuffer[_rcvBufferIdx + 1] & 0x7F;
+  _pump[2] = _rcvBuffer[_rcvBufferIdx + 2] & 0x7F;
+  _pump[3] = _rcvBuffer[_rcvBufferIdx + 3] & 0x7F;
+
+  // Calculate relay states
+  for (uint8_t i = 0; i < 4; i++)
+    _relay[i] = (_pump[i] > 0);
+
+  // Frame 4: Operating hours
+  _rcvBufferIdx = 27;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _operatingHours[0] = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
+    _operatingHours[1] = (_rcvBuffer[_rcvBufferIdx + 3] << 8) | _rcvBuffer[_rcvBufferIdx + 2];
+  }
+
+  // Frame 5: Heat quantity
+  _rcvBufferIdx = 33;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _heatQuantity = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
+  }
+
+  // Frame 6: Error mask
+  _rcvBufferIdx = 39;
+  if (_rcvBufferIdx + 4 < 255) {
+    _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+    _errorMask = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
+  }
 }
 
