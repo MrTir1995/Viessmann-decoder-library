@@ -2,6 +2,8 @@
 
 A comprehensive Arduino library for communicating with Viessmann heating systems using multiple protocols. This library supports modern and legacy Viessmann communication protocols, enabling integration with a wide range of heating controllers and solar regulators.
 
+**⚡ NEW:** Linux support now available! See [Linux Installation Guide](linux/README_LINUX.md) for Debian-based systems.
+
 ## Supported Protocols
 
 - **VBUS (RESOL Protocol 1.0)** - Point-to-multipoint communication protocol used in Viessmann Vitosolic and RESOL DeltaSol controllers
@@ -152,6 +154,31 @@ For ESP32 and ESP8266 platforms, an optional web-based configuration interface i
 4. Access web interface at device IP address
 
 For complete documentation, see [WEBSERVER_SETUP.md](doc/WEBSERVER_SETUP.md).
+
+## Linux Support
+
+This library can now be used on Linux systems (Debian, Ubuntu, Raspbian, etc.) without Arduino hardware!
+
+The Linux port provides:
+- **Native Linux library** - No Arduino IDE required
+- **Command-line tools** - Ready-to-use example applications
+- **Easy installation** - Automated install script for Debian-based systems
+- **Multiple build systems** - Support for both Make and CMake
+- **Full protocol support** - All protocols (VBUS, KW-Bus, P300, KM-Bus) work on Linux
+
+### Quick Start (Linux)
+
+```bash
+cd linux
+sudo ./install.sh
+```
+
+Then run:
+```bash
+vbusdecoder_linux -p /dev/ttyUSB0 -b 9600 -t vbus
+```
+
+For complete Linux installation and usage instructions, see [Linux Installation Guide](linux/README_LINUX.md).
 
 ## Contributing
 
