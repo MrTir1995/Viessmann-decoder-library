@@ -2,7 +2,9 @@
 
 A comprehensive Arduino library for communicating with Viessmann heating systems using multiple protocols. This library supports modern and legacy Viessmann communication protocols, enabling integration with a wide range of heating controllers and solar regulators.
 
-**⚡ NEW:** Linux support now available! See [Linux Installation Guide](linux/README_LINUX.md) for Debian-based systems.
+**⚡ NEW:** 
+- **Linux support** now available! See [Linux Installation Guide](linux/README_LINUX.md) for Debian-based systems.
+- **Windows support** now available! See [Windows Installation Guide](windows/README_WINDOWS.md) for Windows 10/11.
 
 ## Supported Protocols
 
@@ -13,7 +15,16 @@ A comprehensive Arduino library for communicating with Viessmann heating systems
 
 ## Features
 
-Current version 2.0.0+ provides multi-protocol support with the following capabilities:
+Current version 2.1.0+ provides multi-protocol support with the following capabilities:
+
+### Bus Participant Discovery (NEW in v2.1)
+- **Automatic discovery** - Automatically detects all devices on the bus
+- **Manual configuration** - Add and configure devices manually
+- **Device identification** - Recognizes known device types (Vitosolic 200, DeltaSol BX/MX, etc.)
+- **Real-time monitoring** - Track up to 16 bus participants simultaneously
+- **Status tracking** - Monitor last seen time and device status
+
+See [Bus Participant Discovery Guide](doc/BUS_PARTICIPANT_DISCOVERY.md) for details.
 
 ### Supported Data Fields
 - **Temperature sensors** (up to 32 channels)
@@ -179,6 +190,32 @@ vbusdecoder_linux -p /dev/ttyUSB0 -b 9600 -t vbus
 ```
 
 For complete Linux installation and usage instructions, see [Linux Installation Guide](linux/README_LINUX.md).
+
+## Windows Support
+
+This library can now be used on Windows systems (Windows 10/11) without Arduino hardware!
+
+The Windows port provides:
+- **Native Windows executable** - No Arduino IDE required
+- **Command-line tools** - Ready-to-use example applications
+- **Multiple build options** - Support for MinGW, Visual Studio, and CMake
+- **Easy building** - Automated build scripts for quick setup
+- **Full protocol support** - All protocols (VBUS, KW-Bus, P300, KM-Bus) work on Windows
+
+### Quick Start (Windows)
+
+Using MinGW:
+```batch
+cd windows
+build_mingw.bat
+```
+
+Then run:
+```batch
+build\bin\vbusdecoder_windows.exe -p COM1 -b 9600 -t vbus
+```
+
+For complete Windows installation and usage instructions, see [Windows Installation Guide](windows/README_WINDOWS.md).
 
 ## Contributing
 

@@ -1,49 +1,51 @@
 /*
- * Viessmann Multi-Protocol Library - Linux Example
+ * Viessmann Multi-Protocol Library - Windows Example
  * 
- * This example demonstrates how to use the library on Linux systems
+ * This example demonstrates how to use the library on Windows systems
  * to communicate with Viessmann heating systems.
  * 
- * Usage: ./vbusdecoder_linux [options]
- *   -p <port>      Serial port (default: /dev/ttyUSB0)
+ * Usage: vbusdecoder_windows.exe [options]
+ *   -p <port>      Serial port (default: COM1)
  *   -b <baud>      Baud rate (default: 9600)
  *   -t <protocol>  Protocol type: vbus, kw, p300, km (default: vbus)
  *   -h             Show this help
  * 
  * Examples:
- *   ./vbusdecoder_linux -p /dev/ttyUSB0 -b 9600 -t vbus
- *   ./vbusdecoder_linux -p /dev/ttyUSB1 -b 4800 -t kw
+ *   vbusdecoder_windows.exe -p COM1 -b 9600 -t vbus
+ *   vbusdecoder_windows.exe -p COM3 -b 4800 -t kw
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>  // For strcasecmp (POSIX)
 #include <signal.h>
-#include <unistd.h>
-#include "LinuxSerial.h"
+#include "WindowsSerial.h"
 #include "vbusdecoder.h"
 
 // Global variables for signal handling
 volatile bool running = true;
-LinuxSerial vbusSerial;
+WindowsSerial vbusSerial;
 
-void signalHandler(int signum) {
-    printf("\nShutting down...\n");
-    running = false;
+BOOL WINAPI consoleHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT) {
+        printf("\nShutting down...\n");
+        running = false;
+        return TRUE;
+    }
+    return FALSE;
 }
 
 void printHelp(const char* progname) {
-    printf("Viessmann Multi-Protocol Library - Linux Example\n");
+    printf("Viessmann Multi-Protocol Library - Windows Example\n");
     printf("\nUsage: %s [options]\n", progname);
-    printf("  -p <port>      Serial port (default: /dev/ttyUSB0)\n");
+    printf("  -p <port>      Serial port (default: COM1)\n");
     printf("  -b <baud>      Baud rate (default: 9600)\n");
     printf("  -t <protocol>  Protocol type: vbus, kw, p300, km (default: vbus)\n");
     printf("  -c <config>    Serial config: 8N1, 8E2 (default: 8N1)\n");
     printf("  -h             Show this help\n");
     printf("\nExamples:\n");
-    printf("  %s -p /dev/ttyUSB0 -b 9600 -t vbus\n", progname);
-    printf("  %s -p /dev/ttyUSB1 -b 4800 -t kw -c 8E2\n", progname);
+    printf("  %s -p COM1 -b 9600 -t vbus\n", progname);
+    printf("  %s -p COM3 -b 4800 -t kw -c 8E2\n", progname);
     printf("\nProtocol Guide:\n");
     printf("  vbus  - RESOL VBUS Protocol (Vitosolic 200, DeltaSol) - 9600 baud, 8N1\n");
     printf("  kw    - KW-Bus (VS1) for Vitotronic 100/200/300 - 4800 baud, 8E2\n");
@@ -56,54 +58,50 @@ void printHelp(const char* progname) {
 }
 
 ProtocolType parseProtocol(const char* str) {
-    if (strcasecmp(str, "vbus") == 0) return PROTOCOL_VBUS;
-    if (strcasecmp(str, "kw") == 0) return PROTOCOL_KW;
-    if (strcasecmp(str, "p300") == 0) return PROTOCOL_P300;
-    if (strcasecmp(str, "km") == 0) return PROTOCOL_KM;
+    if (_stricmp(str, "vbus") == 0) return PROTOCOL_VBUS;
+    if (_stricmp(str, "kw") == 0) return PROTOCOL_KW;
+    if (_stricmp(str, "p300") == 0) return PROTOCOL_P300;
+    if (_stricmp(str, "km") == 0) return PROTOCOL_KM;
     return PROTOCOL_VBUS;  // Default
 }
 
 uint8_t parseConfig(const char* str) {
-    if (strcasecmp(str, "8N1") == 0) return SERIAL_8N1;
-    if (strcasecmp(str, "8E2") == 0) return SERIAL_8E2;
+    if (_stricmp(str, "8N1") == 0) return SERIAL_8N1;
+    if (_stricmp(str, "8E2") == 0) return SERIAL_8E2;
     return SERIAL_8N1;  // Default
 }
 
 int main(int argc, char* argv[]) {
     // Default parameters
-    const char* port = "/dev/ttyUSB0";
+    const char* port = "COM1";
     unsigned long baud = 9600;
     ProtocolType protocol = PROTOCOL_VBUS;
     uint8_t config = SERIAL_8N1;
     
     // Parse command line arguments
-    int opt;
-    while ((opt = getopt(argc, argv, "p:b:t:c:h")) != -1) {
-        switch (opt) {
-            case 'p':
-                port = optarg;
-                break;
-            case 'b':
-                baud = atol(optarg);
-                break;
-            case 't':
-                protocol = parseProtocol(optarg);
-                break;
-            case 'c':
-                config = parseConfig(optarg);
-                break;
-            case 'h':
-                printHelp(argv[0]);
-                return 0;
-            default:
-                printHelp(argv[0]);
-                return 1;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+            port = argv[++i];
+        } else if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
+            baud = atol(argv[++i]);
+        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+            protocol = parseProtocol(argv[++i]);
+        } else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
+            config = parseConfig(argv[++i]);
+        } else if (strcmp(argv[i], "-h") == 0) {
+            printHelp(argv[0]);
+            return 0;
+        } else {
+            printf("Unknown option: %s\n\n", argv[i]);
+            printHelp(argv[0]);
+            return 1;
         }
     }
     
-    // Set up signal handler
-    signal(SIGINT, signalHandler);
-    signal(SIGTERM, signalHandler);
+    // Set up console handler
+    if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
+        fprintf(stderr, "Warning: Could not set console handler\n");
+    }
     
     // Open serial port
     printf("Opening serial port %s at %lu baud...\n", port, baud);
@@ -111,8 +109,9 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Failed to open serial port %s\n", port);
         fprintf(stderr, "Make sure:\n");
         fprintf(stderr, "  1. The device is connected\n");
-        fprintf(stderr, "  2. You have permission to access the port (add user to 'dialout' group)\n");
-        fprintf(stderr, "  3. The port path is correct\n");
+        fprintf(stderr, "  2. The port name is correct (e.g., COM1, COM3)\n");
+        fprintf(stderr, "  3. No other application is using the port\n");
+        fprintf(stderr, "  4. You have permission to access the port\n");
         return 1;
     }
     printf("Serial port opened successfully.\n");
