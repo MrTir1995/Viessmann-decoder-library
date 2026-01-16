@@ -25,7 +25,7 @@ The web server example provides a complete web-based interface for:
 
 ### Hardware
 - **ESP32** or **ESP8266** board with WiFi capability
-- Serial connection to Viessmann heating system (see [HARDWARE_SETUP.md](HARDWARE_SETUP.md))
+- Serial connection to Viessmann heating system (see [HARDWARE_SETUP.md](./HARDWARE_SETUP.md))
 - Stable WiFi network
 
 ### Software
@@ -257,7 +257,7 @@ Restarts the ESP32/ESP8266 device.
 **Problem**: Web interface shows "Waiting for data..."
 
 **Solutions**:
-1. Verify physical connections (see [HARDWARE_SETUP.md](HARDWARE_SETUP.md))
+1. Verify physical connections (see [HARDWARE_SETUP.md](./HARDWARE_SETUP.md))
 2. Check protocol selection matches your device
 3. Verify baud rate and serial configuration
 4. Check RX/TX pins are correct and not swapped
@@ -314,7 +314,7 @@ server.on("/config", []() {
 The library provides **read-only** monitoring by default. It does not send commands or control the heating system. However:
 
 1. Keep monitoring separate from heating system control
-2. Use electrical isolation (see [HARDWARE_SETUP.md](HARDWARE_SETUP.md))
+2. Use electrical isolation (see [HARDWARE_SETUP.md](./HARDWARE_SETUP.md))
 3. Do not bypass safety equipment
 4. Follow local regulations for heating system modifications
 
@@ -437,7 +437,7 @@ The web server handles one connection at a time. For multiple users:
 ## Additional Resources
 
 - **Library Documentation**: [README.md](../README.md)
-- **Hardware Setup**: [HARDWARE_SETUP.md](HARDWARE_SETUP.md)
+- **Hardware Setup**: [HARDWARE_SETUP.md](./HARDWARE_SETUP.md)
 - **Protocol Details**: [PROTOCOLS.md](../PROTOCOLS.md)
 - **Example Code**: [examples/webserver_config/](../examples/webserver_config/)
 
