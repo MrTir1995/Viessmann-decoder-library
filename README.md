@@ -75,3 +75,60 @@ This library has been reviewed for security vulnerabilities and malicious code. 
 ## Usage
 
 See the example in `examples/vbusdecoder/vbusdecoder.ino` for complete usage demonstration.
+
+For detailed protocol information, see [PROTOCOLS.md](PROTOCOLS.md).
+
+For migration from v1.x, see [MIGRATION.md](MIGRATION.md).
+
+## Quick Start
+
+```cpp
+#include <SoftwareSerial.h>
+#include "vbusdecoder.h"
+
+SoftwareSerial vbusSerial(8,9);  // RX, TX
+VBUSDecoder vbus(&vbusSerial);
+
+void setup() {
+  vbusSerial.begin(9600);
+  
+  // Select protocol:
+  // PROTOCOL_VBUS - for RESOL VBUS devices (default)
+  // PROTOCOL_KW - for KW-Bus devices  
+  // PROTOCOL_P300 - for P300/Optolink devices
+  // PROTOCOL_KM - for KM-Bus devices
+  vbus.begin(PROTOCOL_VBUS);
+  
+  Serial.begin(115200);
+}
+
+void loop() {
+  vbus.loop();
+  
+  if (vbus.isReady()) {
+    Serial.print("Temp 1: ");
+    Serial.println(vbus.getTemp(0));
+  }
+}
+```
+
+## Protocol Selection Guide
+
+| Your Device | Protocol | Baud Rate | Settings |
+|-------------|----------|-----------|----------|
+| Vitosolic 200, DeltaSol | PROTOCOL_VBUS | 9600 | 8N1 |
+| Vitotronic (old) | PROTOCOL_KW | 4800 | 8E2 |
+| Vitodens, Vitocrossal (new) | PROTOCOL_P300 | 4800 | 8E2 |
+| Remote controls | PROTOCOL_KM | Varies | Varies |
+
+## Contributing
+
+Contributions are welcome! Areas for improvement:
+- Additional device decoders for existing protocols
+- Enhanced KM-Bus protocol implementation
+- Protocol-specific optimizations
+- Additional test cases and examples
+
+## License
+
+See LICENSE file for details.
