@@ -50,7 +50,44 @@ void loop() {
         Serial.print(vbus.getRelay(i)?"ON": "OFF");
         Serial.print(F(", "));
       }
-      Serial.println();          
+      Serial.println();
+
+      // Display extended information
+      uint16_t errorMask = vbus.getErrorMask();
+      if (errorMask != 0) {
+        Serial.print(F("Error Mask: 0x"));
+        Serial.println(errorMask, HEX);
+      }
+
+      uint16_t systemTime = vbus.getSystemTime();
+      if (systemTime > 0) {
+        Serial.print(F("System Time: "));
+        Serial.print(systemTime);
+        Serial.println(F(" minutes"));
+      }
+
+      uint32_t opHours0 = vbus.getOperatingHours(0);
+      uint32_t opHours1 = vbus.getOperatingHours(1);
+      if (opHours0 > 0 || opHours1 > 0) {
+        Serial.print(F("Operating Hours [1]: "));
+        Serial.print(opHours0);
+        Serial.print(F(" h, [2]: "));
+        Serial.print(opHours1);
+        Serial.println(F(" h"));
+      }
+
+      uint16_t heatQty = vbus.getHeatQuantity();
+      if (heatQty > 0) {
+        Serial.print(F("Heat Quantity: "));
+        Serial.print(heatQty);
+        Serial.println(F(" Wh"));
+      }
+
+      uint8_t sysVariant = vbus.getSystemVariant();
+      if (sysVariant > 0) {
+        Serial.print(F("System Variant: "));
+        Serial.println(sysVariant);
+      }
     }
     lastMillis = millis();
   }
