@@ -88,6 +88,8 @@ This library has been reviewed for security vulnerabilities and malicious code. 
 
 See the example in `examples/vbusdecoder/vbusdecoder.ino` for complete usage demonstration.
 
+For web-based configuration and monitoring (ESP32/ESP8266), see `examples/webserver_config/` and [WEBSERVER_SETUP.md](doc/WEBSERVER_SETUP.md).
+
 For detailed protocol information, see [PROTOCOLS.md](PROTOCOLS.md).
 
 For migration from v1.x, see [MIGRATION.md](MIGRATION.md).
@@ -132,6 +134,24 @@ void loop() {
 | Vitotronic 100/200/300 (old) | PROTOCOL_KW | 4800 | 8E2 |
 | Vitodens, Vitocrossal (new) | PROTOCOL_P300 | 4800 | 8E2 |
 | Remote controls (Vitotrol), expansion modules | PROTOCOL_KM | Varies | Varies |
+
+## Optional Web Server (ESP32/ESP8266)
+
+For ESP32 and ESP8266 platforms, an optional web-based configuration interface is available. This allows you to:
+
+- **Configure protocol settings** through a web browser
+- **Monitor real-time data** from your heating system
+- **Save configuration** to flash memory
+- **Remote access** from any device on your network
+
+### Quick Start
+
+1. Open `examples/webserver_config/webserver_config.ino`
+2. Update WiFi credentials
+3. Upload to ESP32/ESP8266
+4. Access web interface at device IP address
+
+For complete documentation, see [WEBSERVER_SETUP.md](doc/WEBSERVER_SETUP.md).
 
 ## Contributing
 
