@@ -28,8 +28,6 @@ void VBUSDecoder::begin() {
   _state = SYNC;
 }
 
-;
-
 void VBUSDecoder::loop() {
     switch (_state) {
     case SYNC:
@@ -184,7 +182,7 @@ void VBUSDecoder::_receiveHandler() {
 
   // Test if whole frame has been already received
   if ((_rcvBufferIdx == _frameLen - 1)) {
-    for (uint8_t i=0: i < _frameCnt) {
+    for (uint8_t i=0; i < _frameCnt; i++) {
       crc = _calcCRC(_rcvBuffer, (i * 6) + 10, 6);
       
       // Go to error state if CRC fails
@@ -208,7 +206,7 @@ void VBUSDecoder::_decodeHandler() {
       case 0x1060:  // Vitosolic 200
       _vitosolic200Decoder();
       break;
-      defalut: // General RESOL device
+      default: // General RESOL device
       _defaultDecoder();
     }
 
