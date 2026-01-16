@@ -56,7 +56,8 @@ class VBUSDecoder {
     uint16_t _cmd;
     uint8_t _frameCnt;
     uint16_t _frameLen;
-    uint8_t _rcvBuffer[255];
+    static const uint16_t MAX_BUFFER_SIZE = 255;
+    uint8_t _rcvBuffer[MAX_BUFFER_SIZE];
     uint8_t _rcvBufferIdx;
     bool _errorFlag;
     bool _readyFlag;

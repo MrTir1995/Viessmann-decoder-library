@@ -7,12 +7,17 @@ VBUSDecoder vbus(&vbusSerial);
 uint32_t lastMillis = millis();
 
 void setup() {
-  vbusSerial.begin(9600);
+  // Configure serial based on protocol:
+  // VBUS: 9600 baud, 8N1 (default)
+  // KW-Bus/P300: 4800 baud, 8E2
+  // KM-Bus: varies by device
+  vbusSerial.begin(9600);  // For VBUS protocol
+  // vbusSerial.begin(4800, SERIAL_8E2);  // Uncomment for KW-Bus or P300
   
   // Initialize with desired protocol:
   // PROTOCOL_VBUS - for RESOL VBUS devices (Vitosolic, DeltaSol)
-  // PROTOCOL_KW - for KW-Bus Viessmann devices
-  // PROTOCOL_P300 - for P300/Optolink Viessmann devices (use 4800 baud, 8E2)
+  // PROTOCOL_KW - for KW-Bus Viessmann devices (requires 4800 8E2)
+  // PROTOCOL_P300 - for P300/Optolink Viessmann devices (requires 4800 8E2)
   // PROTOCOL_KM - for KM-Bus Viessmann devices
   vbus.begin(PROTOCOL_VBUS);  // Default is VBUS
   

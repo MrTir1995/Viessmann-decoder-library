@@ -676,7 +676,7 @@ void VBUSDecoder::_kwReceiveHandler() {
     _rcvBuffer[_rcvBufferIdx++] = rcvByte;
     
     // Prevent buffer overflow
-    if (_rcvBufferIdx >= 255) {
+    if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
@@ -769,7 +769,7 @@ void VBUSDecoder::_p300ReceiveHandler() {
     uint8_t rcvByte = _stream->read();
     _rcvBuffer[_rcvBufferIdx++] = rcvByte;
     
-    if (_rcvBufferIdx >= 255) {
+    if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
@@ -864,7 +864,7 @@ void VBUSDecoder::_kmReceiveHandler() {
     uint8_t rcvByte = _stream->read();
     _rcvBuffer[_rcvBufferIdx++] = rcvByte;
     
-    if (_rcvBufferIdx >= 255) {
+    if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
@@ -918,19 +918,19 @@ void VBUSDecoder::_kmDecodeHandler() {
 }
 
 // KM-Bus default decoder
-// Basic placeholder for KM-Bus protocol (requires detailed specification)
+// PLACEHOLDER IMPLEMENTATION - KM-Bus protocol requires detailed specification
+// This decoder currently does not extract any meaningful data
 void VBUSDecoder::_kmDefaultDecoder() {
-  // KM-Bus protocol data extraction
-  // This is a placeholder implementation
-  // Real implementation requires detailed protocol specification
+  // KM-Bus protocol data extraction not yet implemented
+  // Real implementation requires detailed protocol specification from Viessmann
   
   if (_rcvBufferIdx < 8) return;
   
-  // Extract basic data if available
+  // No data extracted - KM-Bus protocol needs complete specification
   _tempNum = 0;
   _pumpNum = 0;
   _relayNum = 0;
   
-  // KM-Bus data would be decoded here based on actual protocol specification
+  // TODO: Implement KM-Bus data extraction when protocol specification is available
 }
 
