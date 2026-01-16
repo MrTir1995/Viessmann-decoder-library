@@ -56,8 +56,6 @@ void printHelp(const char* progname) {
     printf("  - Real-time monitoring of all detected devices\n");
     printf("  - Manual device configuration supported via API\n");
 }
-    printf("  km    - KM-Bus for remote controls and modules - varies\n");
-}
 
 ProtocolType parseProtocol(const char* str) {
     if (_stricmp(str, "vbus") == 0) return PROTOCOL_VBUS;
