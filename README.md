@@ -6,7 +6,7 @@ The primary reason why the project has been started is to decode information fro
 
 ## Features
 
-Current version 1.0+ supports decoding data from:
+Current version 1.1.0+ supports decoding data from:
 
 ### Supported Data Fields
 - **Temperature sensors** (up to 32 channels)
@@ -45,7 +45,7 @@ This library has been reviewed for security vulnerabilities and malicious code. 
 - `getPumpNum()` - Get number of pumps
 - `getRelayNum()` - Get number of relays
 
-### Extended Data Methods (v1.0+)
+### Extended Data Methods (v1.1.0+)
 - `getErrorMask()` - Get system error mask
 - `getSystemTime()` - Get system time in minutes
 - `getOperatingHours(idx)` - Get operating hours counter
