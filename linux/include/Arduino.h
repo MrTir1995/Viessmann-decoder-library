@@ -19,8 +19,11 @@ typedef bool boolean;
 typedef uint8_t byte;
 
 // Serial configuration constants
-#define SERIAL_8N1 0x06
-#define SERIAL_8E2 0x26
+// Format: bits 0-1: data bits (always 8), bits 2-3: parity, bits 4-5: stop bits
+// Parity: 00=None, 10=Even, 11=Odd
+// Stop bits: 00=1, 01=2
+#define SERIAL_8N1 0x00  // 8 data, no parity, 1 stop bit
+#define SERIAL_8E2 0x18  // 8 data, even parity (10), 2 stop bits (01)
 
 // Stream base class for serial communication
 class Stream {

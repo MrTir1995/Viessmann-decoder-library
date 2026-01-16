@@ -109,24 +109,29 @@ bool LinuxSerial::configure(unsigned long baud, uint8_t config) {
     // Control modes
     newtio.c_cflag = CS8 | CLOCAL | CREAD;
     
-    // Parse config byte
-    // Bit 0-1: unused
-    // Bit 2-3: parity (00=N, 10=E, 11=O)
-    // Bit 4-5: stop bits (00=1, 01=2)
+    // Parse config byte (Arduino-style serial configuration)
+    // Bit 0-1: Data bits (ignored, always 8)
+    // Bit 2-3: Parity (00=N, 10=E, 11=O)
+    // Bit 4-5: Stop bits (00=1, 01=2)
     
-    // Parity
-    if (config & 0x10) {
+    // Parity (bits 2-3)
+    uint8_t parity = (config >> 2) & 0x03;
+    if (parity == 0x02) {
+        // Even parity (10)
         newtio.c_cflag |= PARENB;
-        if (config & 0x20) {
-            newtio.c_cflag |= PARODD;  // Odd parity
-        }
-        // Even parity is default when PARENB is set
+    } else if (parity == 0x03) {
+        // Odd parity (11)
+        newtio.c_cflag |= PARENB | PARODD;
     }
+    // No parity (00) is default
     
-    // Stop bits
-    if (config & 0x08) {
-        newtio.c_cflag |= CSTOPB;  // 2 stop bits
+    // Stop bits (bits 4-5)
+    uint8_t stopbits = (config >> 4) & 0x03;
+    if (stopbits == 0x01) {
+        // 2 stop bits (01)
+        newtio.c_cflag |= CSTOPB;
     }
+    // 1 stop bit (00) is default
     
     // Input modes
     newtio.c_iflag = IGNPAR;
