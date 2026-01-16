@@ -33,7 +33,13 @@ Current version 2.0.0+ provides multi-protocol support with the following capabi
 - **Generic RESOL devices** - Basic support for 4 temperature sensors
 
 #### KW-Bus (VS1) Protocol Devices
-- **Viessmann Vitotronic controllers** - Legacy heating controllers using KW protocol
+- **Viessmann Vitotronic 100 series** - Legacy heating controllers
+- **Viessmann Vitotronic 200 series** - Including Type KW1 (weather-compensated boiler control)
+  - Part Numbers: Best.-Nr. 7450 740 to 7450 743
+  - Detailed documentation: See doc/VITOTRONIC_200_KW1.md
+- **Viessmann Vitotronic 300 series** - Advanced heating system controllers
+- **Viessmann Vitodens** (older models) - Condensing boilers
+- **Viessmann Vitocrossal** (older models) - Commercial heating systems
 - Basic support for temperature and status data
 
 #### P300 (VS2) Protocol Devices
@@ -42,7 +48,13 @@ Current version 2.0.0+ provides multi-protocol support with the following capabi
 - Basic support for standard datapoints
 
 #### KM-Bus Protocol Devices
-- **Viessmann expansion modules** - Basic framework for future implementation
+- **Viessmann Vitotronic controllers** - Controllers with KM-Bus terminals
+- **Vitotrol 200/300** - Remote control units
+- **Vitocom 100** - Internet gateway for remote monitoring and control
+- **Schaltmodul-V** - Switching/expansion modules
+- **Expansion modules** - Mixer circuits, additional zone controls
+- Basic framework for future implementation
+- See doc/VITOTRONIC_200_KW1.md for Vitotronic 200 KW1 specifics
 
 ## Security
 
@@ -117,9 +129,9 @@ void loop() {
 | Your Device | Protocol | Baud Rate | Settings |
 |-------------|----------|-----------|----------|
 | Vitosolic 200, DeltaSol | PROTOCOL_VBUS | 9600 | 8N1 |
-| Vitotronic (old) | PROTOCOL_KW | 4800 | 8E2 |
+| Vitotronic 100/200/300 (old) | PROTOCOL_KW | 4800 | 8E2 |
 | Vitodens, Vitocrossal (new) | PROTOCOL_P300 | 4800 | 8E2 |
-| Remote controls | PROTOCOL_KM | Varies | Varies |
+| Remote controls (Vitotrol), expansion modules | PROTOCOL_KM | Varies | Varies |
 
 ## Contributing
 
