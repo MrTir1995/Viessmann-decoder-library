@@ -318,7 +318,7 @@ The Optolink interface is a small circular opening on the boiler, usually marked
 ### Arduino Code Example
 ```cpp
 #include <SoftwareSerial.h>
-#include "vbusdecoder.h"
+#include <vbusdecoder.h>
 
 SoftwareSerial optoSerial(8, 9);  // RX, TX
 VBUSDecoder decoder(&optoSerial);
@@ -327,6 +327,7 @@ void setup() {
   Serial.begin(115200);
   
   // P300: 4800 baud, 8E2
+  // NOTE: Even parity (8E2) may require hardware serial on some boards
   optoSerial.begin(4800, SERIAL_8E2);
   decoder.begin(PROTOCOL_P300);
   
@@ -348,6 +349,12 @@ void loop() {
   }
 }
 ```
+
+**Parity Support Note:**
+The SERIAL_8E2 configuration (8 data bits, even parity, 2 stop bits) is required for P300 protocol. Not all Arduino cores support even parity in SoftwareSerial:
+- **Supported:** Most AVR boards (Uno, Mega, Nano) with newer cores
+- **Hardware Serial Recommended:** For ESP32, ESP8266, and other platforms, use hardware serial ports (Serial1, Serial2, etc.) which typically support all parity modes
+- **Fallback:** If even parity is not available, protocol communication will not work correctly
 
 ### Commercial Optolink Adapters
 

@@ -35,7 +35,7 @@ Checksum: XOR of all previous bytes
 **Arduino Setup Example:**
 ```cpp
 #include <SoftwareSerial.h>
-#include "vbusdecoder.h"
+#include <vbusdecoder.h>
 
 SoftwareSerial kwSerial(8, 9);  // RX, TX
 VBUSDecoder decoder(&kwSerial);

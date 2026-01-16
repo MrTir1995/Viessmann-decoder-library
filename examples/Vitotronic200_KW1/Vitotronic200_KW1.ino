@@ -27,7 +27,7 @@
  */
 
 #include <SoftwareSerial.h>
-#include "vbusdecoder.h"
+#include <vbusdecoder.h>
 
 // Pin configuration
 // RX Pin 8 - receives data from Vitotronic
@@ -38,6 +38,10 @@ VBUSDecoder decoder(&kwSerial);
 // Update interval for serial output
 const unsigned long UPDATE_INTERVAL = 5000; // 5 seconds
 unsigned long lastUpdate = 0;
+
+// Temperature validation constants
+const float MIN_VALID_TEMP = -50.0; // Minimum reasonable temperature in °C
+const float MAX_VALID_TEMP = 200.0; // Maximum reasonable temperature in °C
 
 // Status tracking
 bool firstConnection = true;
@@ -55,6 +59,8 @@ void setup() {
   
   // Initialize KW-Bus serial communication
   // IMPORTANT: KW-Bus requires 4800 baud, 8 data bits, Even parity, 2 stop bits
+  // NOTE: SERIAL_8E2 (even parity) is not supported by all Arduino cores
+  // For boards without even parity support in SoftwareSerial, use hardware serial (Serial1, Serial2, etc.)
   kwSerial.begin(4800, SERIAL_8E2);
   
   // Initialize decoder with KW-Bus protocol
@@ -137,7 +143,7 @@ void displayData() {
       float temp = decoder.getTemp(i);
       
       // Skip invalid temperatures
-      if (temp < -50.0 || temp > 200.0) {
+      if (temp < MIN_VALID_TEMP || temp > MAX_VALID_TEMP) {
         continue;
       }
       
