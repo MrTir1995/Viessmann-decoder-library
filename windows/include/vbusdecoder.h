@@ -159,6 +159,12 @@ class VBUSDecoder {
     float getKMBusOutdoorTemp() const;      // Get outdoor temperature
     float getKMBusSetpointTemp() const;     // Get setpoint temperature
     float getKMBusDepartureTemp() const;    // Get departure/flow temperature
+    
+    // Control commands (KM-Bus protocol)
+    bool setKMBusMode(uint8_t mode);        // Set operating mode (off/night/day/eco/party)
+    bool setKMBusSetpoint(uint8_t circuit, float temperature);  // Set temperature setpoint
+    bool setKMBusEcoMode(bool enable);      // Enable/disable eco mode
+    bool setKMBusPartyMode(bool enable);    // Enable/disable party mode
 
   private:
     Stream* _stream;
@@ -247,6 +253,7 @@ class VBUSDecoder {
     uint16_t _kmReflect16(uint16_t data);
     void _kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen);
     float _kmDecodeTemperature(uint8_t encodedTemp);
+    bool _kmSendCommand(uint8_t address, uint8_t command, const uint8_t* data, uint8_t dataLen);
 
     // VBUS device decoders
     void _defaultDecoder();

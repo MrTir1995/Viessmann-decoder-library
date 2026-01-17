@@ -48,11 +48,11 @@ VBUSDecoder::VBUSDecoder(Stream* serial):
       _participants[i].name[0] = '\0';
       _participants[i].active = false;
     }
-  }  
+  }
 
 VBUSDecoder::~VBUSDecoder()
   {}
-  
+
 void VBUSDecoder::begin(ProtocolType protocol) {
   _protocol = protocol;
   _lastMillis = millis();
@@ -81,7 +81,7 @@ void VBUSDecoder::loop() {
           break;
       }
       break;
-      
+
     case PROTOCOL_KW:
       switch (_state) {
         case SYNC:
@@ -101,7 +101,7 @@ void VBUSDecoder::loop() {
           break;
       }
       break;
-      
+
     case PROTOCOL_P300:
       switch (_state) {
         case SYNC:
@@ -121,7 +121,7 @@ void VBUSDecoder::loop() {
           break;
       }
       break;
-      
+
     case PROTOCOL_KM:
       switch (_state) {
         case SYNC:
@@ -149,7 +149,7 @@ const float VBUSDecoder::getTemp(uint8_t idx) const {
 }
 
 const uint8_t VBUSDecoder::getPump(uint8_t idx) const {
-  return _pump[idx];  
+  return _pump[idx];
 }
 
 const bool VBUSDecoder::getRelay(uint8_t idx) const {
@@ -242,14 +242,14 @@ float VBUSDecoder::getKMBusDepartureTemp() const {
 // KM-Bus Control Commands
 bool VBUSDecoder::setKMBusMode(uint8_t mode) {
   if (_protocol != PROTOCOL_KM) return false;
-  
+
   // Validate mode
-  if (mode != KMBUS_MODE_OFF && mode != KMBUS_MODE_NIGHT && 
-      mode != KMBUS_MODE_DAY && mode != KMBUS_MODE_ECO && 
+  if (mode != KMBUS_MODE_OFF && mode != KMBUS_MODE_NIGHT &&
+      mode != KMBUS_MODE_DAY && mode != KMBUS_MODE_ECO &&
       mode != KMBUS_MODE_PARTY) {
     return false;
   }
-  
+
   // Send WRR command to set mode
   uint8_t command = 0;
   switch (mode) {
@@ -262,7 +262,7 @@ bool VBUSDecoder::setKMBusMode(uint8_t mode) {
     default:
       return false;  // Other modes need additional implementation
   }
-  
+
   uint8_t data = command;
   return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &data, 1);
 }
@@ -271,32 +271,32 @@ bool VBUSDecoder::setKMBusSetpoint(uint8_t circuit, float temperature) {
   if (_protocol != PROTOCOL_KM) return false;
   if (circuit >= KMBUS_MAX_CIRCUITS) return false;
   if (temperature < 5.0 || temperature > 35.0) return false;  // Safety limits
-  
+
   // Convert temperature to encoded format (0.5°C resolution)
   uint8_t encodedTemp = (uint8_t)((temperature - 5.0) * 2);
-  
+
   // XOR encode the data
   uint8_t data = encodedTemp ^ KMBUS_XOR_MASK;
-  
+
   // Determine target address based on circuit
   uint8_t address = KMBUS_ADDR_MASTER_CMD;
   if (circuit == 0) address = KMBUS_ADDR_CIR1_CMD;
   else if (circuit == 1) address = KMBUS_ADDR_CIR2_CMD;
   else if (circuit == 2) address = KMBUS_ADDR_CIR3_CMD;
-  
+
   return _kmSendCommand(address, KMBUS_CMD_WRN_DAT, &data, 1);
 }
 
 bool VBUSDecoder::setKMBusEcoMode(bool enable) {
   if (_protocol != PROTOCOL_KM) return false;
-  
+
   uint8_t command = enable ? KMBUS_WRR_ECO_ON : KMBUS_WRR_ECO_OFF;
   return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &command, 1);
 }
 
 bool VBUSDecoder::setKMBusPartyMode(bool enable) {
   if (_protocol != PROTOCOL_KM) return false;
-  
+
   uint8_t command = enable ? KMBUS_WRR_PARTY_ON : KMBUS_WRR_PARTY_OFF;
   return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &command, 1);
 }
@@ -304,25 +304,25 @@ bool VBUSDecoder::setKMBusPartyMode(bool enable) {
 // Helper function to send KM-Bus commands
 bool VBUSDecoder::_kmSendCommand(uint8_t address, uint8_t command, const uint8_t* data, uint8_t dataLen) {
   if (!_stream) return false;
-  
+
   // Build KM-Bus frame: 0x68 L L 0x68 Ctrl Addr Data CS 0x16
   uint8_t frame[32];
   uint8_t idx = 0;
-  
+
   uint8_t length = 3 + dataLen;  // Ctrl + Addr + Data
-  
+
   frame[idx++] = 0x68;
   frame[idx++] = length;
   frame[idx++] = length;
   frame[idx++] = 0x68;
   frame[idx++] = command;
   frame[idx++] = address;
-  
+
   // Add data
   for (uint8_t i = 0; i < dataLen; i++) {
     frame[idx++] = data[i];
   }
-  
+
   // Calculate checksum
   uint8_t checksum = 0;
   for (uint8_t i = 4; i < idx; i++) {
@@ -330,17 +330,17 @@ bool VBUSDecoder::_kmSendCommand(uint8_t address, uint8_t command, const uint8_t
   }
   frame[idx++] = checksum;
   frame[idx++] = 0x16;
-  
+
   // Send frame
   _stream->write(frame, idx);
   _stream->flush();
-  
+
   // Wait for transmission to complete
   // Note: This is a simple blocking wait. For non-blocking applications,
   // consider implementing an async callback mechanism or removing this delay
   // and handling response in the main loop.
   delay(100);
-  
+
   return true;
 }
 
@@ -351,7 +351,7 @@ uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Len
     uint8_t i;
     Crc = 0x7F;
     for (i = 0; i < Length; i++) {
-        Crc = (Crc - Buffer [Offset + i]) & 0x7F; 
+        Crc = (Crc - Buffer [Offset + i]) & 0x7F;
     }
     return Crc;
 }
@@ -383,10 +383,10 @@ float VBUSDecoder::_calcTemp(uint8_t Byte1, uint8_t Byte2) {
 void VBUSDecoder::_headerDecoder() {
   _dstAddr = (_rcvBuffer[1] << 8) | _rcvBuffer[0];
   _srcAddr = (_rcvBuffer[3] << 8) | _rcvBuffer[2];
-  _protocolVer = (_rcvBuffer[4] >> 4) + (_rcvBuffer[4] & (1<<15)); 
+  _protocolVer = (_rcvBuffer[4] >> 4) + (_rcvBuffer[4] & (1<<15));
   _cmd = (_rcvBuffer[6] << 8) | _rcvBuffer[5];
   _frameCnt = _rcvBuffer[7];
-  _frameLen = _rcvBuffer[7] * 6 + 10;  
+  _frameLen = _rcvBuffer[7] * 6 + 10;
 }
 
 //VBUS Sync handler
@@ -403,7 +403,7 @@ void VBUSDecoder::_vbusSyncHandler() {
       _frameCnt = 0;
       _frameLen = 0;
       _state = RECEIVE;
-    }  
+    }
 }
 
 // VBUS Receiving handler
@@ -414,27 +414,27 @@ void VBUSDecoder::_vbusReceiveHandler() {
     uint8_t rcvByte = _stream->read();
 
     // MSB is set - according to protocol description the receiving has to be stopped
-    if (rcvByte >= 0x80) { 
+    if (rcvByte >= 0x80) {
       _state = ERROR;
       return;
     }
-    
+
     _rcvBuffer[_rcvBufferIdx] = rcvByte;
-    _rcvBufferIdx++;  
+    _rcvBufferIdx++;
   }
 
   // Test if there is frame header stored in receive buffer
-  if ((_rcvBufferIdx > 10) && (_frameCnt == 0)) {  
+  if ((_rcvBufferIdx > 10) && (_frameCnt == 0)) {
     _headerDecoder();
 
     // Only protocol 1.0 will be decoded
     if (_protocolVer != 1) {
       _state = SYNC;
-      return; 
+      return;
     }
 
     crc = _calcCRC(_rcvBuffer, 0, 9);
-      
+
     // if CRC fails go to ERROR state
     if (crc != 0) {
       _state = ERROR;
@@ -449,15 +449,15 @@ void VBUSDecoder::_vbusReceiveHandler() {
   if ((_rcvBufferIdx == _frameLen - 1)) {
     for (uint8_t i=0; i < _frameCnt; i++) {
       crc = _calcCRC(_rcvBuffer, (i * 6) + 10, 6);
-      
+
       // Go to error state if CRC fails
       if  (crc != 0) {
         _state = ERROR;
         return;
-      }   
+      }
     }
     _lastMillis = millis();
-    _state = DECODE;  
+    _state = DECODE;
   }
 }
 
@@ -489,7 +489,7 @@ void VBUSDecoder::_vbusDecodeHandler() {
     }
 
     _readyFlag = true;
-    _state = SYNC;  
+    _state = SYNC;
   }
 }
 
@@ -527,7 +527,7 @@ void VBUSDecoder::_defaultDecoder() {
   //
   //*******************  Frame 1  *******************
   _tempNum = 4;
-  
+
   _rcvBufferIdx = 9;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
 
@@ -570,7 +570,7 @@ void VBUSDecoder::_vitosolic200Decoder() {
   //17                  Temperature S9      256.0       °C
   //18                  Temperature S10     1.0         °C
   //19                  Temperature S10     256.0       °C
-  //20                  Temperature S11     1.0         °C  
+  //20                  Temperature S11     1.0         °C
   //21                  Temperature S11     256.0       °C
   //22                  Temperature S12     1.0         °C
   //23                  Temperature S12     256.0       °C
@@ -582,7 +582,7 @@ void VBUSDecoder::_vitosolic200Decoder() {
   //48                  Relay 5             1           %
   //49                  Relay 6             1           %
   //50                  Relay 7             1           %
-  
+
   //52                  Error mask          1           -
   //53                  Error mask          256         -
   //54                  System time         1           min
@@ -595,11 +595,11 @@ void VBUSDecoder::_vitosolic200Decoder() {
   // byte 6 is a checksum
   //
   //**************************************************
-  
+
   _tempNum = 12;
   _relayNum = 7;
   _pumpNum = 7;
-  
+
   // Frame 1: Temperatures S1-S2
   _rcvBufferIdx = 9;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
@@ -644,8 +644,8 @@ void VBUSDecoder::_vitosolic200Decoder() {
 
   // Frame 12: Pump/Relay data 1-4
   _rcvBufferIdx = 75;
-  _septetInject(_rcvBuffer, _rcvBufferIdx, 4); 
-  
+  _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
+
   _pump[0] = _rcvBuffer[_rcvBufferIdx] & 0x7F;
   _pump[1] = _rcvBuffer[_rcvBufferIdx + 1] & 0x7F;
   _pump[2] = _rcvBuffer[_rcvBufferIdx + 2] & 0x7F;
@@ -654,7 +654,7 @@ void VBUSDecoder::_vitosolic200Decoder() {
   // Frame 13: Pump/Relay data 5-7 + Error mask byte 1
   _rcvBufferIdx = 81;
   _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
-  
+
   _pump[4] = _rcvBuffer[_rcvBufferIdx] & 0x7F;
   _pump[5] = _rcvBuffer[_rcvBufferIdx + 1] & 0x7F;
   _pump[6] = _rcvBuffer[_rcvBufferIdx + 2] & 0x7F;
@@ -663,10 +663,10 @@ void VBUSDecoder::_vitosolic200Decoder() {
   _rcvBufferIdx = 87;
   if (_rcvBufferIdx + 4 < 255) {
     _septetInject(_rcvBuffer, _rcvBufferIdx, 4);
-    
+
     // Error mask (2 bytes)
     _errorMask = (_rcvBuffer[_rcvBufferIdx + 1] << 8) | _rcvBuffer[_rcvBufferIdx];
-    
+
     // System time in minutes (2 bytes)
     _systemTime = (_rcvBuffer[_rcvBufferIdx + 3] << 8) | _rcvBuffer[_rcvBufferIdx + 2];
   }
@@ -681,7 +681,7 @@ void VBUSDecoder::_vitosolic200Decoder() {
   // Calculate relay states from pump values (100% = ON)
   for (uint8_t i = 0; i < 7; i++)
     _relay[i] = (_pump[i] == 0x64) ? true : false;
-    
+
   ///******************* End of frames ****************
 }
 
@@ -843,19 +843,19 @@ void VBUSDecoder::_kwSyncHandler() {
 // Format: 0x01 <len> <data...> <checksum>
 void VBUSDecoder::_kwReceiveHandler() {
   while (_stream->available() > 0) {
-    uint8_t rcvByte = _stream->read();
-    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
-    
-    // Prevent buffer overflow
+    // Prevent buffer overflow before writing
     if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
-    
+
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
+
     // Check if we have at least sync + length byte
     if (_rcvBufferIdx >= 2) {
       uint8_t expectedLen = _rcvBuffer[1];
-      
+
       // Check if complete frame received (sync + len + data + checksum)
       if (_rcvBufferIdx >= (expectedLen + 3)) {
         // Simple checksum validation (XOR of all bytes except last should equal last byte)
@@ -863,7 +863,7 @@ void VBUSDecoder::_kwReceiveHandler() {
         for (uint8_t i = 0; i < _rcvBufferIdx - 1; i++) {
           checksum ^= _rcvBuffer[i];
         }
-        
+
         if (checksum == _rcvBuffer[_rcvBufferIdx - 1]) {
           _errorFlag = false;
           _lastMillis = millis();
@@ -884,7 +884,7 @@ void VBUSDecoder::_kwDecodeHandler() {
   if (_autoDiscoveryEnabled && _srcAddr != 0) {
     _updateParticipant(_srcAddr);
   }
-  
+
   _kwDefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -896,23 +896,23 @@ void VBUSDecoder::_kwDefaultDecoder() {
   // KW protocol basic data extraction
   // Format varies by device, this is a generic implementation
   // Frame: 0x01 <len> <addr> <data...> <checksum>
-  
+
   if (_rcvBufferIdx < 5) return; // Need at least: sync, len, addr, 1 data byte, checksum
-  
+
   uint8_t dataLen = _rcvBuffer[1];
   uint8_t addr = _rcvBuffer[2];
-  
+
   // Extract temperatures if available (typically 2 bytes per temp, big-endian)
   _tempNum = 0;
   uint8_t dataIdx = 3; // Start after sync, len, addr
-  
+
   while (dataIdx + 1 < _rcvBufferIdx - 1 && _tempNum < 4) {
     int16_t tempRaw = (_rcvBuffer[dataIdx] << 8) | _rcvBuffer[dataIdx + 1];
     _temp[_tempNum] = (float)tempRaw / 10.0; // Typical scaling for KW temps
     _tempNum++;
     dataIdx += 2;
   }
-  
+
   // Set minimal relay/pump info (protocol-specific decoding would go here)
   _pumpNum = 0;
   _relayNum = 0;
@@ -927,7 +927,7 @@ void VBUSDecoder::_kwDefaultDecoder() {
 void VBUSDecoder::_p300SyncHandler() {
   if (millis() - _lastMillis > 20 * 1000UL)
     _state = ERROR;
-    
+
   if (_stream->available() > 0) {
     uint8_t syncByte = _stream->read();
     if (syncByte == 0x05 || syncByte == 0x01) { // P300 response or request start
@@ -944,23 +944,23 @@ void VBUSDecoder::_p300ReceiveHandler() {
   while (_stream->available() > 0) {
     uint8_t rcvByte = _stream->read();
     _rcvBuffer[_rcvBufferIdx++] = rcvByte;
-    
+
     if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
-    
+
     // P300 frames are typically: start(1) + len(1) + data(len) + checksum(1)
     if (_rcvBufferIdx >= 3) {
       uint8_t frameLen = _rcvBuffer[1];
-      
+
       if (_rcvBufferIdx >= (frameLen + 3)) {
         // Simple checksum validation (sum of all bytes except last should equal last)
         uint8_t checksum = 0;
         for (uint8_t i = 0; i < _rcvBufferIdx - 1; i++) {
           checksum += _rcvBuffer[i];
         }
-        
+
         if (checksum == _rcvBuffer[_rcvBufferIdx - 1]) {
           _errorFlag = false;
           _lastMillis = millis();
@@ -981,7 +981,7 @@ void VBUSDecoder::_p300DecodeHandler() {
   if (_autoDiscoveryEnabled && _srcAddr != 0) {
     _updateParticipant(_srcAddr);
   }
-  
+
   _p300DefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -992,17 +992,17 @@ void VBUSDecoder::_p300DecodeHandler() {
 void VBUSDecoder::_p300DefaultDecoder() {
   // P300 protocol data extraction
   // Format: <start> <len> <type> <addr_high> <addr_low> <data...> <checksum>
-  
+
   if (_rcvBufferIdx < 6) return; // Minimum frame size
-  
+
   uint8_t frameType = _rcvBuffer[2];
   uint16_t dataAddr = (_rcvBuffer[3] << 8) | _rcvBuffer[4];
   uint8_t dataLen = _rcvBuffer[1] - 3; // len includes type and addr bytes
-  
+
   // Extract temperature values from common P300 datapoints
   // This is a simplified decoder - real implementation would use datapoint tables
   _tempNum = 0;
-  
+
   if (dataLen >= 2 && _tempNum < 4) {
     // Extract up to 4 temperature values
     uint8_t dataIdx = 5;
@@ -1013,7 +1013,7 @@ void VBUSDecoder::_p300DefaultDecoder() {
       dataIdx += 2;
     }
   }
-  
+
   _pumpNum = 0;
   _relayNum = 0;
 }
@@ -1027,7 +1027,7 @@ void VBUSDecoder::_p300DefaultDecoder() {
 void VBUSDecoder::_kmSyncHandler() {
   if (millis() - _lastMillis > 20 * 1000UL)
     _state = ERROR;
-    
+
   if (_stream->available() > 0) {
     uint8_t syncByte = _stream->read();
     if (syncByte == 0x68) { // M-Bus/KM-Bus start byte
@@ -1044,25 +1044,25 @@ void VBUSDecoder::_kmReceiveHandler() {
   while (_stream->available() > 0) {
     uint8_t rcvByte = _stream->read();
     _rcvBuffer[_rcvBufferIdx++] = rcvByte;
-    
+
     if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
-    
+
     // KM-Bus long frame: 0x68 L L 0x68 ... CRC_L CRC_H 0x16
     if (_rcvBufferIdx >= 4 && _rcvBuffer[0] == 0x68) {
       if (_rcvBuffer[3] != 0x68) {
         _state = ERROR;
         return;
       }
-      
+
       uint8_t frameLen = _rcvBuffer[1];
       if (_rcvBuffer[1] != _rcvBuffer[2]) { // Length bytes must match
         _state = ERROR;
         return;
       }
-      
+
       // Check if full frame received
       // Frame: 4 header bytes + frameLen data bytes + 2 CRC bytes + 1 stop byte
       if (_rcvBufferIdx >= (frameLen + 7)) {
@@ -1071,12 +1071,12 @@ void VBUSDecoder::_kmReceiveHandler() {
           _state = ERROR;
           return;
         }
-        
+
         // CRC-16 validation (covers bytes from index 4 to end - 3)
         // CRC is calculated over control, address, and data bytes
         uint16_t calculatedCRC = _kmCalcCRC16(_rcvBuffer, 4, frameLen);
         uint16_t receivedCRC = _rcvBuffer[_rcvBufferIdx - 3] | (_rcvBuffer[_rcvBufferIdx - 2] << 8);
-        
+
         if (calculatedCRC == receivedCRC) {
           _errorFlag = false;
           _lastMillis = millis();
@@ -1097,7 +1097,7 @@ void VBUSDecoder::_kmDecodeHandler() {
   if (_autoDiscoveryEnabled && _srcAddr != 0) {
     _updateParticipant(_srcAddr);
   }
-  
+
   _kmDefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -1114,7 +1114,7 @@ void VBUSDecoder::_kmDefaultDecoder() {
     _relayNum = 0;
     return;
   }
-  
+
   // KM-Bus frame structure:
   // [0] = 0x68 (start)
   // [1] = length
@@ -1126,16 +1126,16 @@ void VBUSDecoder::_kmDefaultDecoder() {
   // [n-2] = CRC-16 low byte
   // [n-1] = CRC-16 high byte
   // [n] = 0x16 (stop)
-  
+
   uint8_t controlByte = _rcvBuffer[4];
   uint8_t addressByte = _rcvBuffer[5];
   uint8_t dataLen = _rcvBuffer[1];
-  
+
   // Check if this is a Write Record Data command (0xBF)
   if (controlByte == KMBUS_CMD_WRR_DAT && dataLen >= 15) {
     // This is a status record, decode it
     _kmDecodeStatusRecord(_rcvBuffer + 4, dataLen);
-    
+
     // Set temperature count based on decoded data
     _tempNum = 5; // Boiler, HW, Outdoor, Setpoint, Departure
     _pumpNum = 2; // Main pump, Loop pump
@@ -1166,47 +1166,47 @@ void VBUSDecoder::_kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen
   // [12] = tempDepart (departure/flow temp)
   // [13] = tbd5
   // [14] = mode (operating mode)
-  
+
   if (bufferLen < 15) return;
-  
+
   uint8_t recordNumber = buffer[3];
-  
+
   // Check if this is a status record (0x1C-0x1F)
   if (recordNumber >= KMBUS_ADDR_MASTER_STATUS && recordNumber <= KMBUS_ADDR_CIR3_STATUS) {
     // Decode status flags (XOR decoded)
     uint8_t statusBurner = buffer[4] ^ KMBUS_XOR_MASK;
     uint8_t statusPump = buffer[11] ^ KMBUS_XOR_MASK;
-    
+
     // Extract burner and pump status
     _kmBusBurnerStatus = (statusBurner & KMBUS_STATUS_BURNER) != 0;
     _kmBusMainPumpStatus = (statusPump & KMBUS_STATUS_MAIN_PUMP) != 0;
     _kmBusLoopPumpStatus = (statusPump & KMBUS_STATUS_LOOP_PUMP) != 0;
-    
+
     // Decode temperatures (XOR decoded)
     _kmBusBoilerTemp = _kmDecodeTemperature(buffer[6] ^ KMBUS_XOR_MASK);
     _kmBusHotWaterTemp = _kmDecodeTemperature(buffer[7] ^ KMBUS_XOR_MASK);
     _kmBusSetpointTemp = _kmDecodeTemperature(buffer[8] ^ KMBUS_XOR_MASK);
     _kmBusOutdoorTemp = _kmDecodeTemperature(buffer[10] ^ KMBUS_XOR_MASK);
     _kmBusDepartureTemp = _kmDecodeTemperature(buffer[12] ^ KMBUS_XOR_MASK);
-    
+
     // Decode operating mode (XOR decoded)
-    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA), 
+    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA),
     // it indicates that the mode byte (buffer[14]) contains valid mode data
     if (buffer[13] == KMBUS_XOR_MASK) {
       _kmBusMode = buffer[14] ^ KMBUS_XOR_MASK;
     }
-    
+
     // Map to standard temperature array for compatibility
     _temp[0] = _kmBusBoilerTemp;
     _temp[1] = _kmBusHotWaterTemp;
     _temp[2] = _kmBusOutdoorTemp;
     _temp[3] = _kmBusSetpointTemp;
     _temp[4] = _kmBusDepartureTemp;
-    
+
     // Map pump status to standard arrays
     _pump[0] = _kmBusMainPumpStatus ? 100 : 0;
     _pump[1] = _kmBusLoopPumpStatus ? 100 : 0;
-    
+
     // Map burner status to relay array
     _relay[0] = _kmBusBurnerStatus;
   }
@@ -1224,24 +1224,24 @@ uint16_t VBUSDecoder::_kmCalcCRC16(const uint8_t *data, uint8_t start, uint16_t 
   const uint16_t msbMask = 0x8000;
   const uint16_t mask = 0xFFFF;
   uint16_t crc = 0x0000; // Initial value
-  
+
   for (uint16_t i = start; i < (start + length); i++) {
     uint8_t c = _kmReflect8(data[i]); // Reflect input byte
-    
+
     for (uint8_t j = 0x80; j > 0; j >>= 1) {
       bool bit = (crc & msbMask) != 0;
       crc <<= 1;
-      
+
       if ((c & j) != 0) {
         bit = !bit;
       }
-      
+
       if (bit) {
         crc ^= polynomial;
       }
     }
   }
-  
+
   // Reflect output
   crc = _kmReflect16(crc);
   return crc & mask;
@@ -1312,7 +1312,7 @@ bool VBUSDecoder::addParticipant(uint16_t address, const char* name,
                                   uint8_t relayChannels) {
   if (_participantCount >= MAX_PARTICIPANTS) return false;
   if (address == 0) return false;
-  
+
   // Check if participant already exists
   int8_t existingIdx = _findParticipantIndex(address);
   if (existingIdx >= 0) {
@@ -1329,7 +1329,7 @@ bool VBUSDecoder::addParticipant(uint16_t address, const char* name,
     p->active = true;
     return true;
   }
-  
+
   // Add new participant
   BusParticipant* p = &_participants[_participantCount];
   p->address = address;
@@ -1339,19 +1339,19 @@ bool VBUSDecoder::addParticipant(uint16_t address, const char* name,
   p->relayChannels = relayChannels;
   p->autoDetected = false;
   p->active = true;
-  
+
   if (name != nullptr) {
     strncpy(p->name, name, sizeof(p->name) - 1);
     p->name[sizeof(p->name) - 1] = '\0';
   } else {
     snprintf(p->name, sizeof(p->name), "Device_0x%04X", address);
   }
-  
+
   // Auto-configure channels if not specified
   if (tempChannels == 0 && pumpChannels == 0 && relayChannels == 0) {
     _configureParticipantChannels(p, address);
   }
-  
+
   _participantCount++;
   return true;
 }
@@ -1360,18 +1360,18 @@ bool VBUSDecoder::addParticipant(uint16_t address, const char* name,
 bool VBUSDecoder::removeParticipant(uint16_t address) {
   int8_t idx = _findParticipantIndex(address);
   if (idx < 0) return false;
-  
+
   // Shift remaining participants down
   for (uint8_t i = idx; i < _participantCount - 1; i++) {
     _participants[i] = _participants[i + 1];
   }
-  
+
   _participantCount--;
-  
+
   // Clear the last slot
   _participants[_participantCount].address = 0;
   _participants[_participantCount].active = false;
-  
+
   return true;
 }
 
@@ -1394,9 +1394,9 @@ void VBUSDecoder::clearParticipants() {
 void VBUSDecoder::_updateParticipant(uint16_t address) {
   if (!_autoDiscoveryEnabled) return;
   if (address == 0) return;
-  
+
   int8_t idx = _findParticipantIndex(address);
-  
+
   if (idx >= 0) {
     // Update existing participant
     _participants[idx].lastSeen = millis();
@@ -1409,13 +1409,13 @@ void VBUSDecoder::_updateParticipant(uint16_t address) {
       p->lastSeen = millis();
       p->autoDetected = true;
       p->active = true;
-      
+
       // Auto-configure based on known device addresses
       _configureParticipantChannels(p, address);
-      
+
       // Generate default name
       snprintf(p->name, sizeof(p->name), "Device_0x%04X", address);
-      
+
       _participantCount++;
     }
   }
@@ -1441,28 +1441,28 @@ void VBUSDecoder::_configureParticipantChannels(BusParticipant* participant, uin
       participant->relayChannels = 7;
       strncpy(participant->name, "Vitosolic 200", sizeof(participant->name) - 1);
       break;
-      
+
     case 0x7E11:  // DeltaSol BX Plus
       participant->tempChannels = 6;
       participant->pumpChannels = 2;
       participant->relayChannels = 0;
       strncpy(participant->name, "DeltaSol BX Plus", sizeof(participant->name) - 1);
       break;
-      
+
     case 0x7E21:  // DeltaSol BX
       participant->tempChannels = 6;
       participant->pumpChannels = 2;
       participant->relayChannels = 0;
       strncpy(participant->name, "DeltaSol BX", sizeof(participant->name) - 1);
       break;
-      
+
     case 0x7E31:  // DeltaSol MX
       participant->tempChannels = 4;
       participant->pumpChannels = 4;
       participant->relayChannels = 0;
       strncpy(participant->name, "DeltaSol MX", sizeof(participant->name) - 1);
       break;
-      
+
     default:  // Unknown device - use defaults
       participant->tempChannels = 4;
       participant->pumpChannels = 2;

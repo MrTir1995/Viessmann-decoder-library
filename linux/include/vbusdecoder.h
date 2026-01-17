@@ -18,6 +18,18 @@ enum ProtocolType: uint8_t {
   PROTOCOL_KM = 3       // Viessmann KM-Bus
 };
 
+// Bus participant information structure
+struct BusParticipant {
+  uint16_t address;           // Device address
+  uint32_t lastSeen;          // Last time packet was received (millis)
+  uint8_t tempChannels;       // Number of temperature channels
+  uint8_t pumpChannels;       // Number of pump channels
+  uint8_t relayChannels;      // Number of relay channels
+  bool autoDetected;          // True if auto-detected, false if manually configured
+  char name[32];              // Device name/description
+  bool active;                // True if participant is active
+};
+
 // KM-Bus Protocol Constants and Structures
 // Device class identifiers for KM-Bus protocol
 enum KMBusDeviceClass: uint8_t {
@@ -124,6 +136,19 @@ class VBUSDecoder {
     uint8_t const getSystemVariant() const;
     ProtocolType const getProtocol() const;
     
+    // Bus participant discovery and management
+    void enableAutoDiscovery(bool enable = true);
+    bool isAutoDiscoveryEnabled() const;
+    uint8_t getParticipantCount() const;
+    const BusParticipant* getParticipant(uint8_t idx) const;
+    const BusParticipant* getParticipantByAddress(uint16_t address) const;
+    bool addParticipant(uint16_t address, const char* name = nullptr, 
+                       uint8_t tempChannels = 0, uint8_t pumpChannels = 0, 
+                       uint8_t relayChannels = 0);
+    bool removeParticipant(uint16_t address);
+    void clearParticipants();
+    uint16_t getCurrentSourceAddress() const;
+    
     // KM-Bus specific methods (only available when PROTOCOL_KM is active)
     bool getKMBusBurnerStatus() const;      // Get burner on/off status
     bool getKMBusMainPumpStatus() const;    // Get main circulation pump status
@@ -134,6 +159,12 @@ class VBUSDecoder {
     float getKMBusOutdoorTemp() const;      // Get outdoor temperature
     float getKMBusSetpointTemp() const;     // Get setpoint temperature
     float getKMBusDepartureTemp() const;    // Get departure/flow temperature
+    
+    // Control commands (KM-Bus protocol)
+    bool setKMBusMode(uint8_t mode);        // Set operating mode (off/night/day/eco/party)
+    bool setKMBusSetpoint(uint8_t circuit, float temperature);  // Set temperature setpoint
+    bool setKMBusEcoMode(bool enable);      // Enable/disable eco mode
+    bool setKMBusPartyMode(bool enable);    // Enable/disable party mode
 
   private:
     Stream* _stream;
@@ -168,6 +199,12 @@ class VBUSDecoder {
     uint16_t _heatQuantity;
     uint8_t _systemVariant;
     
+    // Bus participant discovery
+    static const uint8_t MAX_PARTICIPANTS = 16;
+    BusParticipant _participants[MAX_PARTICIPANTS];
+    uint8_t _participantCount;
+    bool _autoDiscoveryEnabled;
+    
     // KM-Bus specific data storage
     uint8_t _kmBusMode;               // Current operating mode
     bool _kmBusBurnerStatus;          // Burner on/off
@@ -178,6 +215,10 @@ class VBUSDecoder {
     float _kmBusOutdoorTemp;          // Outdoor temperature
     float _kmBusSetpointTemp;         // Setpoint temperature
     float _kmBusDepartureTemp;        // Departure/flow temperature
+    
+    void _updateParticipant(uint16_t address);
+    int8_t _findParticipantIndex(uint16_t address) const;
+    void _configureParticipantChannels(BusParticipant* participant, uint16_t address);
     
     // Common utility functions
     uint8_t _calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length);
@@ -212,6 +253,7 @@ class VBUSDecoder {
     uint16_t _kmReflect16(uint16_t data);
     void _kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen);
     float _kmDecodeTemperature(uint8_t encodedTemp);
+    bool _kmSendCommand(uint8_t address, uint8_t command, const uint8_t* data, uint8_t dataLen);
 
     // VBUS device decoders
     void _defaultDecoder();
