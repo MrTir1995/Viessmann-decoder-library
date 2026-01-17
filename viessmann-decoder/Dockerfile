@@ -9,7 +9,8 @@ RUN apk add --no-cache \
     linux-headers \
     libmicrohttpd-dev \
     libmicrohttpd \
-    curl
+    curl \
+    && mkdir -p /etc/s6-overlay/s6-rc.d
 
 # Set working directory
 WORKDIR /build
@@ -39,14 +40,34 @@ RUN g++ -o /usr/local/bin/viessmann_webserver \
     -I../include \
     -I../library_src \
     -lmicrohttpd \
-    -lpthread
+    -lpthread \
+    && strip /usr/local/bin/viessmann_webserver
 
 # Clean up build files and remove build dependencies
 WORKDIR /
-RUN rm -rf /build && apk del --no-cache build-base g++ make linux-headers libmicrohttpd-dev
+RUN rm -rf /build /root/.cache && \
+    apk del --no-cache build-base g++ make linux-headers libmicrohttpd-dev
 
-# Copy run script
-COPY viessmann-decoder/run.sh /
-RUN chmod +x /run.sh
+# Setup S6-Overlay v3 service structure
+RUN mkdir -p /etc/s6-overlay/s6-rc.d/viessmann-webserver && \
+    mkdir -p /etc/s6-overlay/s6-rc.d/viessmann-webserver/dependencies.d && \
+    mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
-CMD ["/run.sh"]
+# Create S6 service type file
+RUN echo "longrun" > /etc/s6-overlay/s6-rc.d/viessmann-webserver/type
+
+# Create S6 service run script
+COPY viessmann-decoder/run.sh /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
+RUN chmod +x /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
+
+# Create service dependencies (depends on base)
+RUN touch /etc/s6-overlay/s6-rc.d/viessmann-webserver/dependencies.d/base
+
+# Add service to user bundle
+RUN touch /etc/s6-overlay/s6-rc.d/user/contents.d/viessmann-webserver
+
+# Health check to monitor webserver availability
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8099/ || exit 1
+
+CMD []

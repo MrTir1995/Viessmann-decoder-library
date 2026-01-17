@@ -12,13 +12,18 @@ url: https://github.com/MrTir1995/Viessmann-decoder-library
 startup: application
 boot: auto
 init: false
+map:
+  - data:rw
+  - config:ro
 ports:
   8099: 8099
 ports_description:
   8099: Web interface
 ingress: true
 ingress_port: 8099
+ingress_panel: true
 panel_icon: mdi:radiator
+watchdog: tcp://localhost:8099
 devices:
   - /dev/ttyUSB0
   - /dev/ttyUSB1
@@ -26,13 +31,17 @@ devices:
   - /dev/ttyAMA0
 privileged:
   - SYS_RAWIO
+host_network: false
+host_dbus: false
+hassio_api: true
+hassio_role: default
 options:
   serial_port: /dev/ttyUSB0
   baud_rate: 9600
   protocol: vbus
   serial_config: 8N1
 schema:
-  serial_port: str
+  serial_port: device(subsystem=tty)
   baud_rate: list(2400|4800|9600|19200|38400|115200)
   protocol: list(vbus|kw|p300|km)
   serial_config: list(8N1|8E2)
