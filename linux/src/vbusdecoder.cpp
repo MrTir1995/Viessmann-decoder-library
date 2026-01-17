@@ -24,8 +24,31 @@ VBUSDecoder::VBUSDecoder(Stream* serial):
   _systemTime(0),
   _operatingHours{0},
   _heatQuantity(0),
-  _systemVariant(0)
-  {}  
+  _systemVariant(0),
+  _participantCount(0),
+  _autoDiscoveryEnabled(true),
+  _kmBusMode(0),
+  _kmBusBurnerStatus(false),
+  _kmBusMainPumpStatus(false),
+  _kmBusLoopPumpStatus(false),
+  _kmBusBoilerTemp(0.0),
+  _kmBusHotWaterTemp(0.0),
+  _kmBusOutdoorTemp(0.0),
+  _kmBusSetpointTemp(0.0),
+  _kmBusDepartureTemp(0.0)
+  {
+    // Initialize participants array
+    for (uint8_t i = 0; i < MAX_PARTICIPANTS; i++) {
+      _participants[i].address = 0;
+      _participants[i].lastSeen = 0;
+      _participants[i].tempChannels = 0;
+      _participants[i].pumpChannels = 0;
+      _participants[i].relayChannels = 0;
+      _participants[i].autoDetected = false;
+      _participants[i].name[0] = '\0';
+      _participants[i].active = false;
+    }
+  }  
 
 VBUSDecoder::~VBUSDecoder()
   {}
@@ -177,6 +200,43 @@ const uint8_t VBUSDecoder::getSystemVariant() const {
 
 const ProtocolType VBUSDecoder::getProtocol() const {
   return _protocol;
+}
+
+// KM-Bus specific getter methods
+bool VBUSDecoder::getKMBusBurnerStatus() const {
+  return _kmBusBurnerStatus;
+}
+
+bool VBUSDecoder::getKMBusMainPumpStatus() const {
+  return _kmBusMainPumpStatus;
+}
+
+bool VBUSDecoder::getKMBusLoopPumpStatus() const {
+  return _kmBusLoopPumpStatus;
+}
+
+uint8_t VBUSDecoder::getKMBusMode() const {
+  return _kmBusMode;
+}
+
+float VBUSDecoder::getKMBusBoilerTemp() const {
+  return _kmBusBoilerTemp;
+}
+
+float VBUSDecoder::getKMBusHotWaterTemp() const {
+  return _kmBusHotWaterTemp;
+}
+
+float VBUSDecoder::getKMBusOutdoorTemp() const {
+  return _kmBusOutdoorTemp;
+}
+
+float VBUSDecoder::getKMBusSetpointTemp() const {
+  return _kmBusSetpointTemp;
+}
+
+float VBUSDecoder::getKMBusDepartureTemp() const {
+  return _kmBusDepartureTemp;
 }
 
 // CRC calculator - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
@@ -858,7 +918,7 @@ void VBUSDecoder::_kmSyncHandler() {
 }
 
 // KM-Bus Receive handler
-// Format: 0x68 <len> <len> 0x68 <data...> <checksum> 0x16
+// Format: 0x68 <len> <len> 0x68 <data...> <checksum_low> <checksum_high> 0x16
 void VBUSDecoder::_kmReceiveHandler() {
   while (_stream->available() > 0) {
     uint8_t rcvByte = _stream->read();
@@ -869,7 +929,7 @@ void VBUSDecoder::_kmReceiveHandler() {
       return;
     }
     
-    // KM-Bus long frame: 0x68 L L 0x68 ... CS 0x16
+    // KM-Bus long frame: 0x68 L L 0x68 ... CRC_L CRC_H 0x16
     if (_rcvBufferIdx >= 4 && _rcvBuffer[0] == 0x68) {
       if (_rcvBuffer[3] != 0x68) {
         _state = ERROR;
@@ -883,20 +943,20 @@ void VBUSDecoder::_kmReceiveHandler() {
       }
       
       // Check if full frame received
-      if (_rcvBufferIdx >= (frameLen + 6)) { // 4 header + len + checksum + stop
+      // Frame: 4 header bytes + frameLen data bytes + 2 CRC bytes + 1 stop byte
+      if (_rcvBufferIdx >= (frameLen + 7)) {
         uint8_t stopByte = _rcvBuffer[_rcvBufferIdx - 1];
         if (stopByte != 0x16) {
           _state = ERROR;
           return;
         }
         
-        // Checksum validation
-        uint8_t checksum = 0;
-        for (uint8_t i = 4; i < _rcvBufferIdx - 2; i++) {
-          checksum += _rcvBuffer[i];
-        }
+        // CRC-16 validation (covers bytes from index 4 to end - 3)
+        // CRC is calculated over control, address, and data bytes
+        uint16_t calculatedCRC = _kmCalcCRC16(_rcvBuffer, 4, frameLen);
+        uint16_t receivedCRC = _rcvBuffer[_rcvBufferIdx - 3] | (_rcvBuffer[_rcvBufferIdx - 2] << 8);
         
-        if (checksum == _rcvBuffer[_rcvBufferIdx - 2]) {
+        if (calculatedCRC == receivedCRC) {
           _errorFlag = false;
           _lastMillis = millis();
           _state = DECODE;
@@ -912,25 +972,178 @@ void VBUSDecoder::_kmReceiveHandler() {
 
 // KM-Bus Decode handler
 void VBUSDecoder::_kmDecodeHandler() {
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+  
   _kmDefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
 }
 
 // KM-Bus default decoder
-// PLACEHOLDER IMPLEMENTATION - KM-Bus protocol requires detailed specification
-// This decoder currently does not extract any meaningful data
+// Enhanced implementation with proper data extraction
 void VBUSDecoder::_kmDefaultDecoder() {
-  // KM-Bus protocol data extraction not yet implemented
-  // Real implementation requires detailed protocol specification from Viessmann
+  // Extract frame information
+  if (_rcvBufferIdx < 8) {
+    // Frame too short, reset counters
+    _tempNum = 0;
+    _pumpNum = 0;
+    _relayNum = 0;
+    return;
+  }
   
-  if (_rcvBufferIdx < 8) return;
+  // KM-Bus frame structure:
+  // [0] = 0x68 (start)
+  // [1] = length
+  // [2] = length (repeat)
+  // [3] = 0x68 (start repeat)
+  // [4] = control byte
+  // [5] = address byte
+  // [6..n-2] = data
+  // [n-1] = checksum
+  // [n] = 0x16 (stop)
   
-  // No data extracted - KM-Bus protocol needs complete specification
-  _tempNum = 0;
-  _pumpNum = 0;
-  _relayNum = 0;
+  uint8_t controlByte = _rcvBuffer[4];
+  uint8_t addressByte = _rcvBuffer[5];
+  uint8_t dataLen = _rcvBuffer[1];
   
-  // TODO: Implement KM-Bus data extraction when protocol specification is available
+  // Check if this is a Write Record Data command (0xBF)
+  if (controlByte == KMBUS_CMD_WRR_DAT && dataLen >= 15) {
+    // This is a status record, decode it
+    _kmDecodeStatusRecord(_rcvBuffer + 4, dataLen);
+    
+    // Set temperature count based on decoded data
+    _tempNum = 5; // Boiler, HW, Outdoor, Setpoint, Departure
+    _pumpNum = 2; // Main pump, Loop pump
+    _relayNum = 1; // Burner
+  } else {
+    // Unknown frame type or insufficient data
+    _tempNum = 0;
+    _pumpNum = 0;
+    _relayNum = 0;
+  }
+}
+
+// Decode KM-Bus status record
+void VBUSDecoder::_kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen) {
+  // Status record structure (from boblegal31/Heater-remote):
+  // [0] = control byte (0xBF)
+  // [1] = intSlot
+  // [2] = srcSubClass
+  // [3] = record number (0x1C-0x1F for status)
+  // [4] = status_chaudiere (burner/valve status)
+  // [5] = tbd1
+  // [6] = tempChaudiere (boiler temp)
+  // [7] = tempECS (hot water temp)
+  // [8] = tempConsigne (setpoint temp)
+  // [9] = tbd2
+  // [10] = tempExterieure (outdoor temp)
+  // [11] = status_pompe (pump status)
+  // [12] = tempDepart (departure/flow temp)
+  // [13] = tbd5
+  // [14] = mode (operating mode)
+  
+  if (bufferLen < 15) return;
+  
+  uint8_t recordNumber = buffer[3];
+  
+  // Check if this is a status record (0x1C-0x1F)
+  if (recordNumber >= KMBUS_ADDR_MASTER_STATUS && recordNumber <= KMBUS_ADDR_CIR3_STATUS) {
+    // Decode status flags (XOR decoded)
+    uint8_t statusBurner = buffer[4] ^ KMBUS_XOR_MASK;
+    uint8_t statusPump = buffer[11] ^ KMBUS_XOR_MASK;
+    
+    // Extract burner and pump status
+    _kmBusBurnerStatus = (statusBurner & KMBUS_STATUS_BURNER) != 0;
+    _kmBusMainPumpStatus = (statusPump & KMBUS_STATUS_MAIN_PUMP) != 0;
+    _kmBusLoopPumpStatus = (statusPump & KMBUS_STATUS_LOOP_PUMP) != 0;
+    
+    // Decode temperatures (XOR decoded)
+    _kmBusBoilerTemp = _kmDecodeTemperature(buffer[6] ^ KMBUS_XOR_MASK);
+    _kmBusHotWaterTemp = _kmDecodeTemperature(buffer[7] ^ KMBUS_XOR_MASK);
+    _kmBusSetpointTemp = _kmDecodeTemperature(buffer[8] ^ KMBUS_XOR_MASK);
+    _kmBusOutdoorTemp = _kmDecodeTemperature(buffer[10] ^ KMBUS_XOR_MASK);
+    _kmBusDepartureTemp = _kmDecodeTemperature(buffer[12] ^ KMBUS_XOR_MASK);
+    
+    // Decode operating mode (XOR decoded)
+    if (buffer[13] == KMBUS_XOR_MASK) { // Check tbd5 byte
+      _kmBusMode = buffer[14] ^ KMBUS_XOR_MASK;
+    }
+    
+    // Map to standard temperature array for compatibility
+    _temp[0] = _kmBusBoilerTemp;
+    _temp[1] = _kmBusHotWaterTemp;
+    _temp[2] = _kmBusOutdoorTemp;
+    _temp[3] = _kmBusSetpointTemp;
+    _temp[4] = _kmBusDepartureTemp;
+    
+    // Map pump status to standard arrays
+    _pump[0] = _kmBusMainPumpStatus ? 100 : 0;
+    _pump[1] = _kmBusLoopPumpStatus ? 100 : 0;
+    
+    // Map burner status to relay array
+    _relay[0] = _kmBusBurnerStatus;
+  }
+}
+
+// Decode KM-Bus temperature value
+// Viessmann uses 0.5°C resolution: value * 0.5 = temperature in °C
+float VBUSDecoder::_kmDecodeTemperature(uint8_t encodedTemp) {
+  return (float)encodedTemp * 0.5f;
+}
+
+// CRC-16 calculation for KM-Bus (CRC-16-CCITT with reflection)
+uint16_t VBUSDecoder::_kmCalcCRC16(const uint8_t *data, uint8_t start, uint16_t length) {
+  const uint16_t polynomial = 0x1021;
+  const uint16_t msbMask = 0x8000;
+  const uint16_t mask = 0xFFFF;
+  uint16_t crc = 0x0000; // Initial value
+  
+  for (uint16_t i = start; i < (start + length); i++) {
+    uint8_t c = _kmReflect8(data[i]); // Reflect input byte
+    
+    for (uint8_t j = 0x80; j > 0; j >>= 1) {
+      bool bit = (crc & msbMask) != 0;
+      crc <<= 1;
+      
+      if ((c & j) != 0) {
+        bit = !bit;
+      }
+      
+      if (bit) {
+        crc ^= polynomial;
+      }
+    }
+  }
+  
+  // Reflect output
+  crc = _kmReflect16(crc);
+  return crc & mask;
+}
+
+// Reflect 8 bits
+uint8_t VBUSDecoder::_kmReflect8(uint8_t data) {
+  uint8_t reflection = 0;
+  for (uint8_t bit = 0; bit < 8; bit++) {
+    if ((data & 0x01) != 0) {
+      reflection |= (1 << (7 - bit));
+    }
+    data >>= 1;
+  }
+  return reflection;
+}
+
+// Reflect 16 bits
+uint16_t VBUSDecoder::_kmReflect16(uint16_t data) {
+  uint16_t reflection = 0;
+  for (uint8_t bit = 0; bit < 16; bit++) {
+    if ((data & 0x01) != 0) {
+      reflection |= (1 << (15 - bit));
+    }
+    data >>= 1;
+  }
+  return reflection;
 }
 
