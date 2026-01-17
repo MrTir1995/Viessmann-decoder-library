@@ -41,9 +41,9 @@ RUN g++ -o /usr/local/bin/viessmann_webserver \
     -lmicrohttpd \
     -lpthread
 
-# Clean up build files
+# Clean up build files and remove build dependencies
 WORKDIR /
-RUN rm -rf /build
+RUN rm -rf /build && apk del --no-cache build-base g++ make linux-headers libmicrohttpd-dev
 
 # Copy run script
 COPY homeassistant-addon/run.sh /
