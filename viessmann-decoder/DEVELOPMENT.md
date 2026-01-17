@@ -17,6 +17,28 @@ viessmann-decoder/
     └── main.cpp        # C++ web server implementation
 ```
 
+## Build Configuration
+
+The `build.json` file specifies how Home Assistant Supervisor should build the Docker image:
+
+```json
+{
+  "build_from": { ... },
+  "context": "..",
+  "dockerfile": "viessmann-decoder/Dockerfile"
+}
+```
+
+**Important**: The `context` is set to `".."` (parent directory) because the add-on needs access to source files in the repository root:
+- `linux/src/` - Linux-specific implementations
+- `linux/include/` - Header files
+- `src/` - Core library source
+- `viessmann-decoder/webserver/` - Web server implementation
+
+The `dockerfile` parameter specifies the exact path to the Dockerfile relative to the build context.
+
+This configuration allows the add-on to be built directly from the Home Assistant Supervisor while accessing the shared library code.
+
 ## Building the Add-on
 
 ### Local Build
