@@ -215,7 +215,7 @@ The addon has been analyzed against all major sections of the guide and updated 
 |--------------|--------|-------|
 | GitHub Actions ready | ✅ Yes | Standard HA builder workflow applicable |
 | Multi-arch builds | ✅ Yes | build.json configured for all arches |
-| Docker Hub integration | ✅ Yes | image field points to ghcr.io |
+| Local builds | ✅ Yes | Uses Dockerfile and build.json for local builds |
 
 **Reference:** Addon_infos.txt lines 206-239
 
