@@ -5,7 +5,7 @@ This directory contains the Home Assistant add-on for the Viessmann Multi-Protoc
 ## Structure
 
 ```
-homeassistant-addon/
+viessmann-decoder/
 ├── config.json          # Add-on configuration and metadata
 ├── build.json           # Docker build configuration
 ├── Dockerfile           # Container build instructions
@@ -27,7 +27,7 @@ To build the add-on locally for testing:
 # Build for your architecture
 docker build -t viessmann-decoder \
   --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.18 \
-  -f homeassistant-addon/Dockerfile .
+  -f viessmann-decoder/Dockerfile .
 
 # Run locally
 docker run -it --rm \
@@ -52,7 +52,7 @@ docker buildx create --name multiarch --use
 docker buildx build \
   --platform linux/amd64,linux/arm64,linux/arm/v7 \
   -t ghcr.io/mrtir1995/viessmann-decoder:latest \
-  -f homeassistant-addon/Dockerfile \
+  -f viessmann-decoder/Dockerfile \
   --push .
 ```
 
@@ -69,7 +69,7 @@ docker buildx build \
 
 ### Method 2: Local Add-on
 
-1. Copy the `homeassistant-addon` directory to `/addons/viessmann-decoder` on your Home Assistant system
+1. Copy the `viessmann-decoder` directory to `/addons/viessmann-decoder` on your Home Assistant system
 2. Go to Settings → Add-ons → Add-on Store
 3. Refresh the page
 4. Find "Viessmann Decoder" under Local Add-ons
@@ -107,7 +107,7 @@ The webserver source is in `webserver/main.cpp`. After making changes:
 # Build the container
 docker build -t viessmann-decoder-test \
   --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.18 \
-  -f homeassistant-addon/Dockerfile .
+  -f viessmann-decoder/Dockerfile .
 
 # Run with test configuration
 docker run -it --rm \
@@ -130,7 +130,7 @@ The add-on uses:
 Check that all source files are present:
 - `src/` - Library source code
 - `linux/src/` and `linux/include/` - Linux wrappers
-- `homeassistant-addon/webserver/main.cpp` - Webserver
+- `viessmann-decoder/webserver/main.cpp` - Webserver
 
 ### Serial Port Access
 
