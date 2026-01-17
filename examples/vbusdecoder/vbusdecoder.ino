@@ -115,6 +115,67 @@ void loop() {
         Serial.print(F("System Variant: "));
         Serial.println(sysVariant);
       }
+      
+      // KM-Bus specific information
+      if (vbus.getProtocol() == PROTOCOL_KM) {
+        Serial.println(F("=== KM-Bus Specific Data ==="));
+        
+        Serial.print(F("Boiler Temperature: "));
+        Serial.print(vbus.getKMBusBoilerTemp());
+        Serial.println(F(" °C"));
+        
+        Serial.print(F("Hot Water Temperature: "));
+        Serial.print(vbus.getKMBusHotWaterTemp());
+        Serial.println(F(" °C"));
+        
+        Serial.print(F("Outdoor Temperature: "));
+        Serial.print(vbus.getKMBusOutdoorTemp());
+        Serial.println(F(" °C"));
+        
+        Serial.print(F("Setpoint Temperature: "));
+        Serial.print(vbus.getKMBusSetpointTemp());
+        Serial.println(F(" °C"));
+        
+        Serial.print(F("Departure Temperature: "));
+        Serial.print(vbus.getKMBusDepartureTemp());
+        Serial.println(F(" °C"));
+        
+        Serial.print(F("Burner Status: "));
+        Serial.println(vbus.getKMBusBurnerStatus() ? F("ON") : F("OFF"));
+        
+        Serial.print(F("Main Pump Status: "));
+        Serial.println(vbus.getKMBusMainPumpStatus() ? F("ON") : F("OFF"));
+        
+        Serial.print(F("Loop Pump Status: "));
+        Serial.println(vbus.getKMBusLoopPumpStatus() ? F("ON") : F("OFF"));
+        
+        Serial.print(F("Operating Mode: 0x"));
+        Serial.println(vbus.getKMBusMode(), HEX);
+        
+        // Decode operating mode
+        uint8_t mode = vbus.getKMBusMode();
+        Serial.print(F("Mode Description: "));
+        switch(mode & 0xCF) {  // Mask for mode bits
+          case 0x00:
+            Serial.println(F("Off/Standby"));
+            break;
+          case 0x08:
+            Serial.println(F("Night/Reduced"));
+            break;
+          case 0x84:
+            Serial.println(F("Day/Comfort"));
+            break;
+          case 0xC6:
+            Serial.println(F("Eco"));
+            break;
+          case 0x86:
+            Serial.println(F("Party"));
+            break;
+          default:
+            Serial.println(F("Unknown"));
+            break;
+        }
+      }
     }
     lastMillis = millis();
   }

@@ -4,12 +4,24 @@
  * This example demonstrates how to interface with a Viessmann Vitotronic 200 
  * Type KW1 controller using the KW-Bus protocol.
  * 
+ * NOTE: The Vitotronic 200 KW1 also supports KM-Bus protocol for connecting
+ * remote controls (Vitotrol) and expansion modules. To use KM-Bus instead:
+ * 1. Change baud rate to 9600 (or device-specific rate)
+ * 2. Change protocol to PROTOCOL_KM
+ * 3. Use standard 8N1 format instead of 8E2
+ * 4. See PROTOCOLS.md for complete KM-Bus documentation
+ * 
  * Hardware Setup:
  * - Connect Arduino RX (Pin 8) to Vitotronic KW-Bus TX
  * - Connect Arduino TX (Pin 9) to Vitotronic KW-Bus RX
  * - Connect GND between Arduino and Vitotronic
  * - Use proper level conversion if needed (RS-232 to TTL)
  * - Consider using electrical isolation for safety
+ * 
+ * For KM-Bus connections:
+ * - Connect to aVG terminals on Vitotronic 200 KW1
+ * - May require M-Bus transceiver IC (e.g., NCN5150)
+ * - See doc/HARDWARE_SETUP.md for detailed connection diagrams
  * 
  * See doc/HARDWARE_SETUP.md for detailed connection diagrams
  * See doc/VITOTRONIC_200_KW1.md for device-specific information

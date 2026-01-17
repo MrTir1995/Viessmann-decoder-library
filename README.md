@@ -11,7 +11,7 @@ A comprehensive Arduino library for communicating with Viessmann heating systems
 - **VBUS (RESOL Protocol 1.0)** - Point-to-multipoint communication protocol used in Viessmann Vitosolic and RESOL DeltaSol controllers
 - **KW-Bus (VS1)** - Legacy Viessmann protocol for older heating systems
 - **P300 (VS2/Optolink)** - Service protocol accessed via optical interface on Viessmann boilers
-- **KM-Bus** - Viessmann 2-wire communication bus for controllers and expansion modules (basic support)
+- **KM-Bus** - Viessmann 2-wire communication bus for controllers and expansion modules (**fully implemented** with status decoding, temperature extraction, and control capabilities)
 
 ## Features
 
@@ -66,7 +66,13 @@ See [Bus Participant Discovery Guide](doc/BUS_PARTICIPANT_DISCOVERY.md) for deta
 - **Vitocom 100** - Internet gateway for remote monitoring and control
 - **Schaltmodul-V** - Switching/expansion modules
 - **Expansion modules** - Mixer circuits, additional zone controls
-- Basic framework for future implementation
+- **Fully implemented** with status record decoding:
+  - 5 temperature sensors (boiler, hot water, outdoor, setpoint, departure)
+  - Burner status monitoring
+  - Main circulation pump status
+  - Hot water loop pump status
+  - Operating mode detection (off, night, day, eco, party)
+- Based on boblegal31/Heater-remote implementation
 - See doc/VITOTRONIC_200_KW1.md for Vitotronic 200 KW1 specifics
 
 ## Security
@@ -221,9 +227,15 @@ For complete Windows installation and usage instructions, see [Windows Installat
 
 Contributions are welcome! Areas for improvement:
 - Additional device decoders for existing protocols
-- Enhanced KM-Bus protocol implementation
+- KM-Bus write/control commands (mode switching, setpoint control)
 - Protocol-specific optimizations
 - Additional test cases and examples
+
+## Acknowledgments
+
+KM-Bus protocol implementation based on the excellent work from:
+- boblegal31/Heater-remote (https://github.com/boblegal31/Heater-remote)
+- OpenV project (https://github.com/openv/openv/wiki/KM-Bus)
 
 ## License
 
