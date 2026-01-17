@@ -21,6 +21,14 @@ if [ ! -e "${SERIAL_PORT}" ]; then
     exit 1
 fi
 
+# Verify that the serial port is accessible (permissions / availability)
+if ! exec 3<>"${SERIAL_PORT}" 2>/dev/null; then
+    bashio::log.error "Cannot open serial port ${SERIAL_PORT}."
+    bashio::log.error "Please check device permissions and ensure it is not in use by another process."
+    exit 1
+fi
+# Close the temporary file descriptor
+exec 3>&-
 # Run the webserver
 exec viessmann_webserver \
     -p "${SERIAL_PORT}" \
