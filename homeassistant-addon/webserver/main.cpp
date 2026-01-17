@@ -521,7 +521,7 @@ const char* getSettingsHTML() {
 
 // Generate Device Configuration Page HTML
 const char* getDevicesHTML() {
-    static char html[16384];
+    static thread_local char html[16384];
     
     if (!vbus) {
         snprintf(html, sizeof(html), 
