@@ -3,7 +3,7 @@
 A comprehensive Arduino library for communicating with Viessmann heating systems using multiple protocols. This library supports modern and legacy Viessmann communication protocols, enabling integration with a wide range of heating controllers and solar regulators.
 
 **⚡ NEW:** 
-- **Home Assistant Addon** now available! See [Home Assistant Addon Guide](homeassistant-addon/README.md) for Docker-based deployment.
+- **Home Assistant Addon** now available! See [Home Assistant Addon Guide](viessmann-decoder/README.md) for Docker-based deployment.
 - **Linux support** now available! See [Linux Installation Guide](linux/README_LINUX.md) for Debian-based systems.
 - **Windows support** now available! See [Windows Installation Guide](windows/README_WINDOWS.md) for Windows 10/11.
 
@@ -244,7 +244,7 @@ The addon provides:
 4. Start the addon
 5. Access the web interface through Home Assistant
 
-For complete installation and integration instructions, see [Home Assistant Addon Guide](homeassistant-addon/README.md).
+For complete installation and integration instructions, see [Home Assistant Addon Guide](viessmann-decoder/README.md).
 
 ## New Features (v2.1+)
 

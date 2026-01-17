@@ -18,7 +18,7 @@ WORKDIR /build
 COPY linux/src /build/src
 COPY linux/include /build/include
 COPY src /build/library_src
-COPY homeassistant-addon/webserver /build/webserver
+COPY viessmann-decoder/webserver /build/webserver
 
 # Build the library
 WORKDIR /build/library_src
@@ -46,7 +46,7 @@ WORKDIR /
 RUN rm -rf /build && apk del --no-cache build-base g++ make linux-headers libmicrohttpd-dev
 
 # Copy run script
-COPY homeassistant-addon/run.sh /
+COPY viessmann-decoder/run.sh /
 RUN chmod +x /run.sh
 
 CMD ["/run.sh"]

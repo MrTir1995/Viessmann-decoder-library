@@ -14,7 +14,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Check if we're in the right directory
-if [ ! -f "homeassistant-addon/config.json" ]; then
+if [ ! -f "viessmann-decoder/config.json" ]; then
     echo -e "${RED}Error: Must be run from repository root${NC}"
     exit 1
 fi
@@ -55,7 +55,7 @@ echo "Building Docker image..."
 docker build \
     --build-arg BUILD_FROM="${BUILD_FROM}" \
     -t viessmann-decoder:${ARCH} \
-    -f homeassistant-addon/Dockerfile \
+    -f viessmann-decoder/Dockerfile \
     . || {
         echo -e "${RED}Build failed!${NC}"
         exit 1

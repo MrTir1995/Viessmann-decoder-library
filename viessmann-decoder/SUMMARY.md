@@ -70,7 +70,7 @@ Viessmann Heating System
 ## File Structure
 
 ```
-homeassistant-addon/
+viessmann-decoder/
 ├── config.json              # Addon metadata and configuration schema
 ├── build.json               # Docker build configuration
 ├── Dockerfile               # Container build instructions
