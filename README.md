@@ -1,5 +1,7 @@
 # Viessmann Multi-Protocol Library
 
+[![Add repository to Home Assistant](https://img.shields.io/badge/Add%20repository%20to-Home%20Assistant-blue?logo=home-assistant&logoColor=white)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/MrTir1995/Viessmann-decoder-library)
+
 A comprehensive Arduino library for communicating with Viessmann heating systems using multiple protocols. This library supports modern and legacy Viessmann communication protocols, enabling integration with a wide range of heating controllers and solar regulators.
 
 **⚡ NEW:** 
@@ -225,6 +227,8 @@ build\bin\vbusdecoder_windows.exe -p COM1 -b 9600 -t vbus
 For complete Windows installation and usage instructions, see [Windows Installation Guide](windows/README_WINDOWS.md).
 
 ## Home Assistant Addon
+
+[![Add repository to Home Assistant](https://img.shields.io/badge/Add%20repository%20to-Home%20Assistant-blue?logo=home-assistant&logoColor=white)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/MrTir1995/Viessmann-decoder-library)
 
 This library is now available as a Home Assistant addon! Run the complete webserver in a Docker container with easy configuration through the Home Assistant UI.
 

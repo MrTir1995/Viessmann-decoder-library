@@ -1,5 +1,7 @@
 # Viessmann Decoder - Home Assistant Add-on
 
+[![Add repository to Home Assistant](https://img.shields.io/badge/Add%20repository%20to-Home%20Assistant-blue?logo=home-assistant&logoColor=white)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/MrTir1995/Viessmann-decoder-library)
+
 Monitor and configure your Viessmann heating system directly from Home Assistant!
 
 This add-on provides a web interface to communicate with Viessmann heating controllers using multiple protocols (VBUS, KW-Bus, P300/Optolink, KM-Bus).
