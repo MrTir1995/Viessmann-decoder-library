@@ -1,0 +1,52 @@
+# Git directory
+.git/
+.gitignore
+
+# Documentation (not needed for build)
+*.md
+doc/
+Addon_infos.txt
+
+# Examples (not needed for runtime)
+examples/
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.exe
+*.out
+linux/build/
+windows/build/
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Windows-specific files (not needed for Linux addon)
+windows/
+
+# Repository metadata files
+repository.json
+repository.yaml
+logo.png
