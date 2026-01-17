@@ -32,7 +32,7 @@
   },
   "schema": {
     "serial_port": "str",
-    "baud_rate": "int(2400,115200)",
+    "baud_rate": "list(2400|4800|9600|19200|38400|115200)",
     "protocol": "list(vbus|kw|p300|km)",
     "serial_config": "list(8N1|8E2)"
   },
