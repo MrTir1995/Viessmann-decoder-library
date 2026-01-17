@@ -11,7 +11,7 @@ arch:
 url: https://github.com/MrTir1995/Viessmann-decoder-library
 startup: application
 boot: auto
-init: false
+init: true
 map:
   - data:rw
   - config:ro
