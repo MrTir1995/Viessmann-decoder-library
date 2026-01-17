@@ -811,11 +811,11 @@ int main(int argc, char* argv[]) {
     
     // Main loop
     while (running) {
-        pthread_mutex_lock(&data_mutex);
         vbus->loop();
-        pthread_mutex_unlock(&data_mutex);
         usleep(10000);  // 10ms delay
     }
+    
+    // Cleanup
     
     // Cleanup
     printf("Stopping web server...\n");
