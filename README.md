@@ -246,13 +246,175 @@ The addon provides:
 
 For complete installation and integration instructions, see [Home Assistant Addon Guide](homeassistant-addon/README.md).
 
+## New Features (v2.1+)
+
+### Control Commands (KM-Bus)
+
+Send commands to adjust heating system settings:
+
+```cpp
+// Set operating mode
+vbus.setKMBusMode(KMBUS_MODE_DAY);
+
+// Adjust temperature setpoint
+vbus.setKMBusSetpoint(0, 21.5);  // Circuit 0, 21.5°C
+
+// Enable/disable eco mode
+vbus.setKMBusEcoMode(true);
+
+// Enable/disable party mode
+vbus.setKMBusPartyMode(true);
+```
+
+See [Control Commands Guide](doc/CONTROL_COMMANDS.md) for complete documentation.
+
+### MQTT Integration
+
+Built-in MQTT support with Home Assistant auto-discovery:
+
+```cpp
+#include "VBUSMqttClient.h"
+
+WiFiClient wifiClient;
+VBUSMqttClient mqttClient(&vbus, &wifiClient);
+
+void setup() {
+  MqttConfig config;
+  config.broker = "192.168.1.100";
+  config.baseTopic = "viessmann";
+  config.useHomeAssistant = true;
+  mqttClient.begin(config);
+}
+
+void loop() {
+  vbus.loop();
+  mqttClient.loop();  // Auto-publishes data
+}
+```
+
+Features:
+- Automatic publishing of all sensor data
+- Home Assistant auto-discovery
+- Configurable topics and intervals
+- Support for control commands via MQTT
+- Energy dashboard integration
+
+See [MQTT Setup Guide](doc/MQTT_SETUP.md) for complete documentation.
+
+### Historical Data Logging
+
+Log sensor data to circular buffer with statistics and export:
+
+```cpp
+#include "VBUSDataLogger.h"
+
+VBUSDataLogger logger(&vbus, 288);  // 24 hours at 5-min intervals
+
+void setup() {
+  logger.begin();
+  logger.setLogInterval(300);  // 5 minutes
+}
+
+void loop() {
+  vbus.loop();
+  logger.loop();  // Auto-logs data
+  
+  // Export as CSV or JSON
+  String csv = logger.exportCSV(startTime, endTime);
+  
+  // Get statistics
+  DataStats stats = logger.getStatisticsLastHours(24);
+}
+```
+
+Features:
+- Memory-efficient circular buffer
+- Configurable logging intervals
+- CSV and JSON export
+- Statistical analysis (min/max/avg)
+- Runtime tracking for pumps and relays
+
+### Advanced Scheduling
+
+Automate heating control with time and temperature-based rules:
+
+```cpp
+#include "VBUSScheduler.h"
+
+VBUSScheduler scheduler(&vbus, 16);  // Up to 16 rules
+
+void setup() {
+  scheduler.begin();
+  
+  // Time-based: Day mode at 6 AM on weekdays
+  scheduler.addTimeRule(6, 0, 0x3E, ACTION_SET_MODE, KMBUS_MODE_DAY);
+  
+  // Temperature-based: Enable eco when outdoor > 15°C
+  scheduler.addTemperatureRule(2, 15.0, true, ACTION_ENABLE_ECO);
+  
+  // Update time (from NTP or RTC)
+  scheduler.setCurrentTime(hour, minute, dayOfWeek);
+}
+
+void loop() {
+  vbus.loop();
+  scheduler.loop();  // Checks and executes rules
+}
+```
+
+Features:
+- Time-based rules (specific times and days)
+- Temperature-based rules (threshold triggers)
+- Custom callback functions
+- Priority system
+- Enable/disable individual rules
+- Multi-circuit support
+
+See [Scheduler Guide](doc/SCHEDULER_GUIDE.md) for complete documentation.
+
+### Enhanced Web Interface
+
+New features in webserver examples:
+- Real-time graphing with Chart.js
+- Historical data visualization
+- Multi-language support (English/German)
+- Control commands interface
+- Data export functionality
+- Mobile-responsive design
+
+See `examples/webserver_enhanced/` for implementation.
+
+## Examples
+
+Complete examples demonstrating all features:
+
+- **`examples/vbusdecoder/`** - Basic temperature monitoring
+- **`examples/webserver_config/`** - Web-based configuration
+- **`examples/webserver_enhanced/`** - Enhanced web interface with graphs
+- **`examples/mqtt_integration/`** - MQTT with Home Assistant
+- **`examples/control_commands/`** - Sending control commands
+- **`examples/advanced_automation/`** - Scheduling and data logging
+- **`examples/Vitotronic200_KW1/`** - Vitotronic 200 KW1 specific
+
+## Documentation
+
+- [Control Commands Guide](doc/CONTROL_COMMANDS.md)
+- [MQTT Setup Guide](doc/MQTT_SETUP.md)
+- [Scheduler Guide](doc/SCHEDULER_GUIDE.md)
+- [Hardware Setup](doc/HARDWARE_SETUP.md)
+- [Protocol Specifications](PROTOCOLS.md)
+- [Web Server Setup](doc/WEBSERVER_SETUP.md)
+- [Bus Participant Discovery](doc/BUS_PARTICIPANT_DISCOVERY.md)
+- [Vitotronic 200 KW1](doc/VITOTRONIC_200_KW1.md)
+
 ## Contributing
 
 Contributions are welcome! Areas for improvement:
 - Additional device decoders for existing protocols
-- KM-Bus write/control commands (mode switching, setpoint control)
 - Protocol-specific optimizations
 - Additional test cases and examples
+- Translations for more languages
+- Home automation platform integrations
 
 ## Acknowledgments
 
