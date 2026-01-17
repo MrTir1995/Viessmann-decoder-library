@@ -15,68 +15,56 @@ ERROR: failed to calculate checksum: "/viessmann-decoder/run.sh": not found
 The addon's `build.json` file was configured with:
 ```json
 {
-  "context": ".."
+  "context": "..",
+  "dockerfile": "viessmann-decoder/Dockerfile"
 }
 ```
 
-This told Home Assistant Supervisor to use the parent directory (repository root) as the Docker build context, which is necessary because the Dockerfile needs to copy source files from:
-- `linux/src/` - Linux-specific implementations
-- `linux/include/` - Header files  
-- `src/` - Core library source
-- `viessmann-decoder/webserver/` - Web server implementation
+This configuration told Home Assistant Supervisor to use the parent directory (repository root) as the Docker build context. However, Home Assistant Supervisor does not properly support parent directory context access when building addons from git repositories. The supervisor cannot access files outside the addon directory during the build process.
 
-However, the `build.json` was **missing the `dockerfile` parameter** to tell Supervisor where the Dockerfile is located relative to that build context.
+## Solution (Current Implementation)
+Made the addon **self-contained** by copying all required source files into the addon directory structure:
 
-## Solution
-Added the `dockerfile` parameter to `build.json`:
+### Files Added to viessmann-decoder/
+- `linux/src/` - Linux-specific implementations (Arduino.cpp, LinuxSerial.cpp, vbusdecoder.cpp)
+- `linux/include/` - Header files (Arduino.h, LinuxSerial.h, vbusdecoder.h)
+- `src/` - Core library source (VBUSDataLogger, VBUSMqttClient, VBUSScheduler, vbusdecoder)
 
+### Changes to Configuration
+Updated `build.json` to use default context (addon directory):
 ```json
 {
   "build_from": { ... },
-  "context": "..",
-  "dockerfile": "viessmann-decoder/Dockerfile",
   "squash": false,
   "args": {}
 }
 ```
 
-This explicitly tells Home Assistant Supervisor:
-1. Use the parent directory (`..`) as the build context
-2. Find the Dockerfile at `viessmann-decoder/Dockerfile` relative to that context
-
-## Additional Fixes
-
-### Dockerfile Warning Fix
-Changed:
+Updated `Dockerfile` COPY commands to use local paths:
 ```dockerfile
-ARG BUILD_FROM
-FROM $BUILD_FROM
+# Before (parent directory references)
+COPY linux/src /build/src
+COPY linux/include /build/include
+COPY src /build/library_src
+COPY viessmann-decoder/webserver /build/webserver
+COPY viessmann-decoder/run.sh /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
+
+# After (local paths)
+COPY linux/src /build/src
+COPY linux/include /build/include
+COPY src /build/library_src
+COPY webserver /build/webserver
+COPY run.sh /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
 ```
 
-To:
+## Dockerfile Warning Fix
+The Dockerfile already has:
 ```dockerfile
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.18
 FROM $BUILD_FROM
 ```
 
-This eliminates the Docker warning: "InvalidDefaultArgInFrom: Default value for ARG $BUILD_FROM results in empty or invalid base image name"
-
-## Verification
-The `build.sh` script in the repository root already uses this correct configuration:
-```bash
-docker build \
-  --build-arg BUILD_FROM="${BUILD_FROM}" \
-  -t viessmann-decoder:${ARCH} \
-  -f viessmann-decoder/Dockerfile \
-  .
-```
-
-This confirms that building from the repository root (`.`) with the Dockerfile at `viessmann-decoder/Dockerfile` is the intended and working configuration.
-
-## Files Changed
-1. `viessmann-decoder/build.json` - Added `dockerfile` parameter
-2. `viessmann-decoder/Dockerfile` - Added default value to BUILD_FROM ARG
-3. `viessmann-decoder/DEVELOPMENT.md` - Added build configuration documentation
+This provides a default value and eliminates Docker warnings about empty base image names.
 
 ## Result
-The addon will now build successfully in Home Assistant Supervisor without any errors.
+The addon is now self-contained and builds successfully in Home Assistant Supervisor without requiring parent directory access. All necessary source files are included within the addon directory.
