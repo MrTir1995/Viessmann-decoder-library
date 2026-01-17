@@ -47,23 +47,14 @@ WORKDIR /
 RUN rm -rf /build /root/.cache && \
     apk del --no-cache build-base g++ make linux-headers libmicrohttpd-dev
 
-# Setup S6-Overlay v3 service structure
-RUN mkdir -p /etc/s6-overlay/s6-rc.d/viessmann-webserver && \
-    mkdir -p /etc/s6-overlay/s6-rc.d/viessmann-webserver/dependencies.d && \
-    mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d && \
-    echo "longrun" > /etc/s6-overlay/s6-rc.d/viessmann-webserver/type && \
-    touch /etc/s6-overlay/s6-rc.d/viessmann-webserver/dependencies.d/base && \
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/viessmann-webserver
-
-# Create S6 service run script (now using local addon directory structure)
-COPY run.sh /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
-RUN chmod +x /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
+# Copy the run script to the root directory (Home Assistant addon standard location)
+COPY run.sh /run.sh
+RUN chmod a+x /run.sh
 
 # Health check to monitor webserver availability (curl is kept for healthcheck)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8099/ || exit 1
 
-# S6-Overlay v3 requires /init as ENTRYPOINT to run as PID 1
-ENTRYPOINT ["/init"]
-
-CMD []
+# Home Assistant Supervisor handles the init process when init: true is set in config.yaml
+# Do not set ENTRYPOINT - it conflicts with the Supervisor's management
+CMD ["/run.sh"]
