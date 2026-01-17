@@ -241,6 +241,38 @@ For issues, questions, or contributions:
 - GitHub: https://github.com/MrTir1995/Viessmann-decoder-library
 - Issues: https://github.com/MrTir1995/Viessmann-decoder-library/issues
 
+## Troubleshooting
+
+### Common Issues
+
+#### "/bin/sh: can't open '/init': Permission denied" Error
+
+This error occurs when the S6-Overlay v3 init system cannot start properly. This has been fixed in the latest version of the addon. If you encounter this error:
+
+1. Update the addon to the latest version
+2. Ensure `init: false` is set in the addon configuration (this is the default)
+3. Restart the addon
+
+**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. The Dockerfile must include `ENTRYPOINT ["/init"]` for proper operation. See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
+
+#### Serial Port Not Found
+
+If the addon reports that the serial port is not found:
+1. Verify that your USB-to-serial adapter is properly connected
+2. Check that the device appears in `/dev` (e.g., `/dev/ttyUSB0`)
+3. Ensure the addon has permission to access the serial device
+4. Try a different USB port
+5. Check the addon logs for specific error messages
+
+#### Connection Issues
+
+If the addon starts but cannot communicate with the heating system:
+1. Verify the protocol selection matches your device
+2. Check the baud rate setting (9600 for VBUS, 4800 for KW/P300/KM)
+3. Verify the serial configuration (8N1 for VBUS, 8E2 for KW/P300)
+4. Test the serial adapter with another tool to confirm it works
+5. Check your hardware wiring and connections
+
 ## License
 
 See the main repository LICENSE file for details.

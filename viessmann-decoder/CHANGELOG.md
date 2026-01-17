@@ -2,6 +2,14 @@
 
 All notable changes to the Viessmann Decoder Home Assistant Add-on will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Fixed "/bin/sh: can't open '/init': Permission denied" error by adding `ENTRYPOINT ["/init"]` to Dockerfile
+  - This is required for Home Assistant base images with S6-Overlay v3
+  - S6-Overlay must run as PID 1, which requires explicit ENTRYPOINT configuration
+  - See: https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/
+
 ## [2.1.0] - 2026-01-17
 
 ### Added
