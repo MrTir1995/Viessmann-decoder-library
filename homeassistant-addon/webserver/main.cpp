@@ -306,7 +306,7 @@ const char* getDashboardHTML() {
 }
 
 const char* getStatusHTML() {
-    static char html[16384]; // Increased buffer size for safety
+    static thread_local char html[16384]; // Thread-local buffer for thread-safe access
     
     // Check if vbus is valid
     if (!vbus) {
