@@ -16,14 +16,14 @@ map:
   - data:rw
   - config:ro
 ports:
-  8099: 8099
+  "8099": "8099"
 ports_description:
-  8099: Web interface
+  "8099": Web interface
 ingress: true
 ingress_port: 8099
 ingress_panel: true
 panel_icon: mdi:radiator
-watchdog: tcp://localhost:8099
+watchdog: tcp://[HOST]:8099
 devices:
   - /dev/ttyUSB0
   - /dev/ttyUSB1
