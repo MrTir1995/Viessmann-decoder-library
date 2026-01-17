@@ -63,4 +63,7 @@ RUN chmod +x /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8099/ || exit 1
 
+# S6-Overlay v3 requires /init as ENTRYPOINT to run as PID 1
+ENTRYPOINT ["/init"]
+
 CMD []
