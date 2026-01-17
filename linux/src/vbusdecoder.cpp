@@ -1001,8 +1001,9 @@ void VBUSDecoder::_kmDefaultDecoder() {
   // [3] = 0x68 (start repeat)
   // [4] = control byte
   // [5] = address byte
-  // [6..n-2] = data
-  // [n-1] = checksum
+  // [6..n-3] = data
+  // [n-2] = CRC-16 low byte
+  // [n-1] = CRC-16 high byte
   // [n] = 0x16 (stop)
   
   uint8_t controlByte = _rcvBuffer[4];
@@ -1068,7 +1069,9 @@ void VBUSDecoder::_kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen
     _kmBusDepartureTemp = _kmDecodeTemperature(buffer[12] ^ KMBUS_XOR_MASK);
     
     // Decode operating mode (XOR decoded)
-    if (buffer[13] == KMBUS_XOR_MASK) { // Check tbd5 byte
+    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA),
+    // it indicates that the mode byte (buffer[14]) contains valid mode data
+    if (buffer[13] == KMBUS_XOR_MASK) {
       _kmBusMode = buffer[14] ^ KMBUS_XOR_MASK;
     }
     
