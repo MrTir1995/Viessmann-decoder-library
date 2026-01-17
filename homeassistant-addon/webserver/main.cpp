@@ -73,54 +73,65 @@ uint8_t parseSerialConfig(const char* str) {
 char* generateDataJSON() {
     static char json[4096];
     int offset = 0;
+    int remaining = sizeof(json);
     
     pthread_mutex_lock(&data_mutex);
     
-    offset += snprintf(json + offset, sizeof(json) - offset, "{");
-    offset += snprintf(json + offset, sizeof(json) - offset, 
-                      "\"ready\":%s,", vbus->isReady() ? "true" : "false");
-    offset += snprintf(json + offset, sizeof(json) - offset,
-                      "\"status\":\"%s\",", vbus->getVbusStat() ? "OK" : "Error");
-    offset += snprintf(json + offset, sizeof(json) - offset,
-                      "\"protocol\":%d,", config.protocol);
+    #define JSON_APPEND(fmt, ...) do { \
+        int written = snprintf(json + offset, remaining, fmt, ##__VA_ARGS__); \
+        if (written >= remaining) { \
+            pthread_mutex_unlock(&data_mutex); \
+            offset = sizeof(json) - 1; \
+            json[offset] = '\0'; \
+            return json; \
+        } \
+        offset += written; \
+        remaining -= written; \
+    } while(0)
+    
+    JSON_APPEND("{");
+    JSON_APPEND("\"ready\":%s,", vbus->isReady() ? "true" : "false");
+    JSON_APPEND("\"status\":\"%s\",", vbus->getVbusStat() ? "OK" : "Error");
+    JSON_APPEND("\"protocol\":%d,", config.protocol);
     
     // Temperatures
-    offset += snprintf(json + offset, sizeof(json) - offset, "\"temperatures\":[");
+    JSON_APPEND("\"temperatures\":[");
     if (vbus->isReady()) {
         uint8_t tempNum = vbus->getTempNum();
         for (uint8_t i = 0; i < tempNum && i < 32; i++) {
-            if (i > 0) offset += snprintf(json + offset, sizeof(json) - offset, ",");
-            offset += snprintf(json + offset, sizeof(json) - offset, "%.1f", vbus->getTemp(i));
+            if (i > 0) JSON_APPEND(",");
+            JSON_APPEND("%.1f", vbus->getTemp(i));
         }
     }
-    offset += snprintf(json + offset, sizeof(json) - offset, "],");
+    JSON_APPEND("],");
     
     // Pumps
-    offset += snprintf(json + offset, sizeof(json) - offset, "\"pumps\":[");
+    JSON_APPEND("\"pumps\":[");
     if (vbus->isReady()) {
         uint8_t pumpNum = vbus->getPumpNum();
         for (uint8_t i = 0; i < pumpNum && i < 32; i++) {
-            if (i > 0) offset += snprintf(json + offset, sizeof(json) - offset, ",");
-            offset += snprintf(json + offset, sizeof(json) - offset, "%d", vbus->getPump(i));
+            if (i > 0) JSON_APPEND(",");
+            JSON_APPEND("%d", vbus->getPump(i));
         }
     }
-    offset += snprintf(json + offset, sizeof(json) - offset, "],");
+    JSON_APPEND("],");
     
     // Relays
-    offset += snprintf(json + offset, sizeof(json) - offset, "\"relays\":[");
+    JSON_APPEND("\"relays\":[");
     if (vbus->isReady()) {
         uint8_t relayNum = vbus->getRelayNum();
         for (uint8_t i = 0; i < relayNum && i < 32; i++) {
-            if (i > 0) offset += snprintf(json + offset, sizeof(json) - offset, ",");
-            offset += snprintf(json + offset, sizeof(json) - offset, "%s", 
-                             vbus->getRelay(i) ? "true" : "false");
+            if (i > 0) JSON_APPEND(",");
+            JSON_APPEND("%s", vbus->getRelay(i) ? "true" : "false");
         }
     }
-    offset += snprintf(json + offset, sizeof(json) - offset, "]");
+    JSON_APPEND("]");
     
     pthread_mutex_unlock(&data_mutex);
     
-    offset += snprintf(json + offset, sizeof(json) - offset, "}");
+    JSON_APPEND("}");
+    
+    #undef JSON_APPEND
     
     return json;
 }
@@ -201,7 +212,7 @@ const char* getDashboardHTML() {
 
 const char* getStatusHTML() {
     static char html[8192];
-    snprintf(html, sizeof(html),
+    int written = snprintf(html, sizeof(html),
     "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
     "<title>Viessmann Decoder - Status</title>"
     "<meta name='viewport' content='width=device-width, initial-scale=1'>"
@@ -214,7 +225,7 @@ const char* getStatusHTML() {
     ".nav{display:flex;justify-content:center;gap:20px;padding:20px;}"
     ".nav a{text-decoration:none;color:white;background:#0066cc;padding:10px 20px;border-radius:5px;}"
     ".nav a:hover{background:#0052a3;}"
-    "table{width:100%%;;border-collapse:collapse;}"
+    "table{width:100%%;border-collapse:collapse;}"
     "th,td{text-align:left;padding:10px;border-bottom:1px solid #ddd;}"
     "th{background:#f0f0f0;font-weight:bold;}"
     "</style>"
@@ -253,6 +264,13 @@ const char* getStatusHTML() {
     config.webPort,
     vbus->getVbusStat() ? "OK" : "Error",
     vbus->isReady() ? "Yes" : "No");
+    
+    // Check for buffer overflow
+    if (written >= (int)sizeof(html)) {
+        fprintf(stderr, "Warning: HTML buffer overflow prevented\n");
+        // Truncate safely
+        html[sizeof(html) - 1] = '\0';
+    }
     
     return html;
 }
