@@ -49,9 +49,8 @@ if ! exec 3<>"${SERIAL_PORT}" 2>/dev/null; then
     bashio::exit.nok
 fi
 # Close the temporary file descriptor
-if ! exec 3>&-; then
-    bashio::log.warning "Failed to close test file descriptor, but continuing..."
-fi
+exec 3>&-
+
 # Log startup completion
 bashio::log.info "Starting webserver with validated configuration..."
 bashio::log.info "Webserver will be available at http://localhost:8099"
