@@ -22,24 +22,22 @@ COPY homeassistant-addon/webserver /build/webserver
 
 # Build the library
 WORKDIR /build/library_src
-RUN mkdir -p /build/lib && \
-    g++ -c -fPIC -I. *.cpp && \
-    ar rcs /build/lib/libviessmann.a *.o && \
-    g++ -shared -o /build/lib/libviessmann.so *.o
+RUN g++ -c -fPIC -I. -I../include vbusdecoder.cpp -o vbusdecoder.o
 
 # Build the Linux serial wrapper
 WORKDIR /build/src
-RUN g++ -c -fPIC -I../include -I../library_src *.cpp
+RUN g++ -c -fPIC -I../include -I../library_src LinuxSerial.cpp -o LinuxSerial.o && \
+    g++ -c -fPIC -I../include -I../library_src Arduino.cpp -o Arduino.o
 
 # Build the webserver application
 WORKDIR /build/webserver
 RUN g++ -o /usr/local/bin/viessmann_webserver \
     main.cpp \
-    ../src/*.o \
+    ../library_src/vbusdecoder.o \
+    ../src/LinuxSerial.o \
+    ../src/Arduino.o \
     -I../include \
     -I../library_src \
-    -L../lib \
-    -lviessmann \
     -lmicrohttpd \
     -lpthread
 
