@@ -239,6 +239,112 @@ float VBUSDecoder::getKMBusDepartureTemp() const {
   return _kmBusDepartureTemp;
 }
 
+// KM-Bus Control Commands
+bool VBUSDecoder::setKMBusMode(uint8_t mode) {
+  if (_protocol != PROTOCOL_KM) return false;
+  
+  // Validate mode
+  if (mode != KMBUS_MODE_OFF && mode != KMBUS_MODE_NIGHT && 
+      mode != KMBUS_MODE_DAY && mode != KMBUS_MODE_ECO && 
+      mode != KMBUS_MODE_PARTY) {
+    return false;
+  }
+  
+  // Send WRR command to set mode
+  uint8_t command = 0;
+  switch (mode) {
+    case KMBUS_MODE_OFF:
+      command = KMBUS_WRR_MODE_OFF;
+      break;
+    case KMBUS_MODE_DAY:
+      command = KMBUS_WRR_MODE_HEAT_WATER;
+      break;
+    default:
+      return false;  // Other modes need additional implementation
+  }
+  
+  uint8_t data = command;
+  return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &data, 1);
+}
+
+bool VBUSDecoder::setKMBusSetpoint(uint8_t circuit, float temperature) {
+  if (_protocol != PROTOCOL_KM) return false;
+  if (circuit >= KMBUS_MAX_CIRCUITS) return false;
+  if (temperature < 5.0 || temperature > 35.0) return false;  // Safety limits
+  
+  // Convert temperature to encoded format (0.5°C resolution)
+  uint8_t encodedTemp = (uint8_t)((temperature - 5.0) * 2);
+  
+  // XOR encode the data
+  uint8_t data = encodedTemp ^ KMBUS_XOR_MASK;
+  
+  // Determine target address based on circuit
+  uint8_t address = KMBUS_ADDR_MASTER_CMD;
+  if (circuit == 0) address = KMBUS_ADDR_CIR1_CMD;
+  else if (circuit == 1) address = KMBUS_ADDR_CIR2_CMD;
+  else if (circuit == 2) address = KMBUS_ADDR_CIR3_CMD;
+  
+  return _kmSendCommand(address, KMBUS_CMD_WRN_DAT, &data, 1);
+}
+
+bool VBUSDecoder::setKMBusEcoMode(bool enable) {
+  if (_protocol != PROTOCOL_KM) return false;
+  
+  uint8_t command = enable ? KMBUS_WRR_ECO_ON : KMBUS_WRR_ECO_OFF;
+  return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &command, 1);
+}
+
+bool VBUSDecoder::setKMBusPartyMode(bool enable) {
+  if (_protocol != PROTOCOL_KM) return false;
+  
+  uint8_t command = enable ? KMBUS_WRR_PARTY_ON : KMBUS_WRR_PARTY_OFF;
+  return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &command, 1);
+}
+
+// Helper function to send KM-Bus commands
+bool VBUSDecoder::_kmSendCommand(uint8_t address, uint8_t command, const uint8_t* data, uint8_t dataLen) {
+  if (!_stream) return false;
+  
+  // Build KM-Bus frame: 0x68 L L 0x68 Ctrl Addr Data CS 0x16
+  uint8_t frame[32];
+  uint8_t idx = 0;
+  
+  uint8_t length = 3 + dataLen;  // Ctrl + Addr + Data
+  
+  frame[idx++] = 0x68;
+  frame[idx++] = length;
+  frame[idx++] = length;
+  frame[idx++] = 0x68;
+  frame[idx++] = command;
+  frame[idx++] = address;
+  
+  // Add data
+  for (uint8_t i = 0; i < dataLen; i++) {
+    frame[idx++] = data[i];
+  }
+  
+  // Calculate checksum
+  uint8_t checksum = 0;
+  for (uint8_t i = 4; i < idx; i++) {
+    checksum += frame[i];
+  }
+  frame[idx++] = checksum;
+  frame[idx++] = 0x16;
+  
+  // Send frame
+  _stream->write(frame, idx);
+  _stream->flush();
+  
+  // Wait for transmission to complete
+  // Note: This is a simple blocking wait. For non-blocking applications,
+  // consider implementing an async callback mechanism or removing this delay
+  // and handling response in the main loop.
+  delay(100);
+  
+  return true;
+}
+
+
 // CRC calculator - coming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Crc;
@@ -1084,7 +1190,7 @@ void VBUSDecoder::_kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen
     _kmBusDepartureTemp = _kmDecodeTemperature(buffer[12] ^ KMBUS_XOR_MASK);
     
     // Decode operating mode (XOR decoded)
-    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA),
+    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA), 
     // it indicates that the mode byte (buffer[14]) contains valid mode data
     if (buffer[13] == KMBUS_XOR_MASK) {
       _kmBusMode = buffer[14] ^ KMBUS_XOR_MASK;

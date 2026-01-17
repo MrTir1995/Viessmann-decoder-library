@@ -239,6 +239,112 @@ float VBUSDecoder::getKMBusDepartureTemp() const {
   return _kmBusDepartureTemp;
 }
 
+// KM-Bus Control Commands
+bool VBUSDecoder::setKMBusMode(uint8_t mode) {
+  if (_protocol != PROTOCOL_KM) return false;
+  
+  // Validate mode
+  if (mode != KMBUS_MODE_OFF && mode != KMBUS_MODE_NIGHT && 
+      mode != KMBUS_MODE_DAY && mode != KMBUS_MODE_ECO && 
+      mode != KMBUS_MODE_PARTY) {
+    return false;
+  }
+  
+  // Send WRR command to set mode
+  uint8_t command = 0;
+  switch (mode) {
+    case KMBUS_MODE_OFF:
+      command = KMBUS_WRR_MODE_OFF;
+      break;
+    case KMBUS_MODE_DAY:
+      command = KMBUS_WRR_MODE_HEAT_WATER;
+      break;
+    default:
+      return false;  // Other modes need additional implementation
+  }
+  
+  uint8_t data = command;
+  return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &data, 1);
+}
+
+bool VBUSDecoder::setKMBusSetpoint(uint8_t circuit, float temperature) {
+  if (_protocol != PROTOCOL_KM) return false;
+  if (circuit >= KMBUS_MAX_CIRCUITS) return false;
+  if (temperature < 5.0 || temperature > 35.0) return false;  // Safety limits
+  
+  // Convert temperature to encoded format (0.5°C resolution)
+  uint8_t encodedTemp = (uint8_t)((temperature - 5.0) * 2);
+  
+  // XOR encode the data
+  uint8_t data = encodedTemp ^ KMBUS_XOR_MASK;
+  
+  // Determine target address based on circuit
+  uint8_t address = KMBUS_ADDR_MASTER_CMD;
+  if (circuit == 0) address = KMBUS_ADDR_CIR1_CMD;
+  else if (circuit == 1) address = KMBUS_ADDR_CIR2_CMD;
+  else if (circuit == 2) address = KMBUS_ADDR_CIR3_CMD;
+  
+  return _kmSendCommand(address, KMBUS_CMD_WRN_DAT, &data, 1);
+}
+
+bool VBUSDecoder::setKMBusEcoMode(bool enable) {
+  if (_protocol != PROTOCOL_KM) return false;
+  
+  uint8_t command = enable ? KMBUS_WRR_ECO_ON : KMBUS_WRR_ECO_OFF;
+  return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &command, 1);
+}
+
+bool VBUSDecoder::setKMBusPartyMode(bool enable) {
+  if (_protocol != PROTOCOL_KM) return false;
+  
+  uint8_t command = enable ? KMBUS_WRR_PARTY_ON : KMBUS_WRR_PARTY_OFF;
+  return _kmSendCommand(KMBUS_ADDR_MASTER_CMD, KMBUS_CMD_WRR_DAT, &command, 1);
+}
+
+// Helper function to send KM-Bus commands
+bool VBUSDecoder::_kmSendCommand(uint8_t address, uint8_t command, const uint8_t* data, uint8_t dataLen) {
+  if (!_stream) return false;
+  
+  // Build KM-Bus frame: 0x68 L L 0x68 Ctrl Addr Data CS 0x16
+  uint8_t frame[32];
+  uint8_t idx = 0;
+  
+  uint8_t length = 3 + dataLen;  // Ctrl + Addr + Data
+  
+  frame[idx++] = 0x68;
+  frame[idx++] = length;
+  frame[idx++] = length;
+  frame[idx++] = 0x68;
+  frame[idx++] = command;
+  frame[idx++] = address;
+  
+  // Add data
+  for (uint8_t i = 0; i < dataLen; i++) {
+    frame[idx++] = data[i];
+  }
+  
+  // Calculate checksum
+  uint8_t checksum = 0;
+  for (uint8_t i = 4; i < idx; i++) {
+    checksum += frame[i];
+  }
+  frame[idx++] = checksum;
+  frame[idx++] = 0x16;
+  
+  // Send frame
+  _stream->write(frame, idx);
+  _stream->flush();
+  
+  // Wait for transmission to complete
+  // Note: This is a simple blocking wait. For non-blocking applications,
+  // consider implementing an async callback mechanism or removing this delay
+  // and handling response in the main loop.
+  delay(100);
+  
+  return true;
+}
+
+
 // CRC calculator - coming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Crc;
@@ -357,6 +463,11 @@ void VBUSDecoder::_vbusReceiveHandler() {
 
 // VBUS Decoder handler
 void VBUSDecoder::_vbusDecodeHandler() {
+
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
 
   // Only packets carrying command 0x0100 - Master to slave are in focus
   if (_cmd == 0x0100) {
@@ -732,14 +843,14 @@ void VBUSDecoder::_kwSyncHandler() {
 // Format: 0x01 <len> <data...> <checksum>
 void VBUSDecoder::_kwReceiveHandler() {
   while (_stream->available() > 0) {
-    // Prevent buffer overflow - check before writing
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
+    
+    // Prevent buffer overflow
     if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
-    
-    uint8_t rcvByte = _stream->read();
-    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
     
     // Check if we have at least sync + length byte
     if (_rcvBufferIdx >= 2) {
@@ -769,6 +880,11 @@ void VBUSDecoder::_kwReceiveHandler() {
 
 // KW-Bus Decode handler
 void VBUSDecoder::_kwDecodeHandler() {
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+  
   _kwDefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -861,6 +977,11 @@ void VBUSDecoder::_p300ReceiveHandler() {
 
 // P300 Decode handler
 void VBUSDecoder::_p300DecodeHandler() {
+  // Update participant information if auto-discovery is enabled
+  if (_autoDiscoveryEnabled && _srcAddr != 0) {
+    _updateParticipant(_srcAddr);
+  }
+  
   _p300DefaultDecoder();
   _readyFlag = true;
   _state = SYNC;
@@ -1069,7 +1190,7 @@ void VBUSDecoder::_kmDecodeStatusRecord(const uint8_t *buffer, uint8_t bufferLen
     _kmBusDepartureTemp = _kmDecodeTemperature(buffer[12] ^ KMBUS_XOR_MASK);
     
     // Decode operating mode (XOR decoded)
-    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA),
+    // buffer[13] is tbd5 byte - when it equals KMBUS_XOR_MASK (0xAA), 
     // it indicates that the mode byte (buffer[14]) contains valid mode data
     if (buffer[13] == KMBUS_XOR_MASK) {
       _kmBusMode = buffer[14] ^ KMBUS_XOR_MASK;
@@ -1148,5 +1269,205 @@ uint16_t VBUSDecoder::_kmReflect16(uint16_t data) {
     data >>= 1;
   }
   return reflection;
+}
+
+// Bus participant discovery and management functions
+
+// Enable or disable automatic discovery of bus participants
+void VBUSDecoder::enableAutoDiscovery(bool enable) {
+  _autoDiscoveryEnabled = enable;
+}
+
+// Check if auto-discovery is enabled
+bool VBUSDecoder::isAutoDiscoveryEnabled() const {
+  return _autoDiscoveryEnabled;
+}
+
+// Get the number of discovered/configured participants
+uint8_t VBUSDecoder::getParticipantCount() const {
+  return _participantCount;
+}
+
+// Get participant by index
+const BusParticipant* VBUSDecoder::getParticipant(uint8_t idx) const {
+  if (idx >= _participantCount) return nullptr;
+  return &_participants[idx];
+}
+
+// Get participant by address
+const BusParticipant* VBUSDecoder::getParticipantByAddress(uint16_t address) const {
+  int8_t idx = _findParticipantIndex(address);
+  if (idx < 0) return nullptr;
+  return &_participants[idx];
+}
+
+// Get current source address from last received packet
+uint16_t VBUSDecoder::getCurrentSourceAddress() const {
+  return _srcAddr;
+}
+
+// Manually add a bus participant
+bool VBUSDecoder::addParticipant(uint16_t address, const char* name,
+                                  uint8_t tempChannels, uint8_t pumpChannels,
+                                  uint8_t relayChannels) {
+  if (_participantCount >= MAX_PARTICIPANTS) return false;
+  if (address == 0) return false;
+  
+  // Check if participant already exists
+  int8_t existingIdx = _findParticipantIndex(address);
+  if (existingIdx >= 0) {
+    // Update existing participant
+    BusParticipant* p = &_participants[existingIdx];
+    if (name != nullptr) {
+      strncpy(p->name, name, sizeof(p->name) - 1);
+      p->name[sizeof(p->name) - 1] = '\0';
+    }
+    if (tempChannels > 0) p->tempChannels = tempChannels;
+    if (pumpChannels > 0) p->pumpChannels = pumpChannels;
+    if (relayChannels > 0) p->relayChannels = relayChannels;
+    p->autoDetected = false;
+    p->active = true;
+    return true;
+  }
+  
+  // Add new participant
+  BusParticipant* p = &_participants[_participantCount];
+  p->address = address;
+  p->lastSeen = millis();
+  p->tempChannels = tempChannels;
+  p->pumpChannels = pumpChannels;
+  p->relayChannels = relayChannels;
+  p->autoDetected = false;
+  p->active = true;
+  
+  if (name != nullptr) {
+    strncpy(p->name, name, sizeof(p->name) - 1);
+    p->name[sizeof(p->name) - 1] = '\0';
+  } else {
+    snprintf(p->name, sizeof(p->name), "Device_0x%04X", address);
+  }
+  
+  // Auto-configure channels if not specified
+  if (tempChannels == 0 && pumpChannels == 0 && relayChannels == 0) {
+    _configureParticipantChannels(p, address);
+  }
+  
+  _participantCount++;
+  return true;
+}
+
+// Remove a bus participant
+bool VBUSDecoder::removeParticipant(uint16_t address) {
+  int8_t idx = _findParticipantIndex(address);
+  if (idx < 0) return false;
+  
+  // Shift remaining participants down
+  for (uint8_t i = idx; i < _participantCount - 1; i++) {
+    _participants[i] = _participants[i + 1];
+  }
+  
+  _participantCount--;
+  
+  // Clear the last slot
+  _participants[_participantCount].address = 0;
+  _participants[_participantCount].active = false;
+  
+  return true;
+}
+
+// Clear all participants
+void VBUSDecoder::clearParticipants() {
+  for (uint8_t i = 0; i < MAX_PARTICIPANTS; i++) {
+    _participants[i].address = 0;
+    _participants[i].lastSeen = 0;
+    _participants[i].tempChannels = 0;
+    _participants[i].pumpChannels = 0;
+    _participants[i].relayChannels = 0;
+    _participants[i].autoDetected = false;
+    _participants[i].name[0] = '\0';
+    _participants[i].active = false;
+  }
+  _participantCount = 0;
+}
+
+// Internal function to update or add a participant (auto-discovery)
+void VBUSDecoder::_updateParticipant(uint16_t address) {
+  if (!_autoDiscoveryEnabled) return;
+  if (address == 0) return;
+  
+  int8_t idx = _findParticipantIndex(address);
+  
+  if (idx >= 0) {
+    // Update existing participant
+    _participants[idx].lastSeen = millis();
+    _participants[idx].active = true;
+  } else {
+    // Add new participant if there's room
+    if (_participantCount < MAX_PARTICIPANTS) {
+      BusParticipant* p = &_participants[_participantCount];
+      p->address = address;
+      p->lastSeen = millis();
+      p->autoDetected = true;
+      p->active = true;
+      
+      // Auto-configure based on known device addresses
+      _configureParticipantChannels(p, address);
+      
+      // Generate default name
+      snprintf(p->name, sizeof(p->name), "Device_0x%04X", address);
+      
+      _participantCount++;
+    }
+  }
+}
+
+// Internal function to find participant index by address
+int8_t VBUSDecoder::_findParticipantIndex(uint16_t address) const {
+  for (uint8_t i = 0; i < _participantCount; i++) {
+    if (_participants[i].address == address && _participants[i].active) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Internal function to configure participant channels based on known device addresses
+void VBUSDecoder::_configureParticipantChannels(BusParticipant* participant, uint16_t address) {
+  // Configure based on known VBUS device addresses
+  switch (address) {
+    case 0x1060:  // Vitosolic 200
+      participant->tempChannels = 12;
+      participant->pumpChannels = 0;
+      participant->relayChannels = 7;
+      strncpy(participant->name, "Vitosolic 200", sizeof(participant->name) - 1);
+      break;
+      
+    case 0x7E11:  // DeltaSol BX Plus
+      participant->tempChannels = 6;
+      participant->pumpChannels = 2;
+      participant->relayChannels = 0;
+      strncpy(participant->name, "DeltaSol BX Plus", sizeof(participant->name) - 1);
+      break;
+      
+    case 0x7E21:  // DeltaSol BX
+      participant->tempChannels = 6;
+      participant->pumpChannels = 2;
+      participant->relayChannels = 0;
+      strncpy(participant->name, "DeltaSol BX", sizeof(participant->name) - 1);
+      break;
+      
+    case 0x7E31:  // DeltaSol MX
+      participant->tempChannels = 4;
+      participant->pumpChannels = 4;
+      participant->relayChannels = 0;
+      strncpy(participant->name, "DeltaSol MX", sizeof(participant->name) - 1);
+      break;
+      
+    default:  // Unknown device - use defaults
+      participant->tempChannels = 4;
+      participant->pumpChannels = 2;
+      participant->relayChannels = 2;
+      break;
+  }
 }
 
