@@ -73,16 +73,28 @@ uint8_t parseSerialConfig(const char* str) {
 char* generateDataJSON() {
     static char json[4096];
     int offset = 0;
-    int remaining = sizeof(json);
+    int remaining = sizeof(json) - 1; // Reserve space for null terminator
     
     pthread_mutex_lock(&data_mutex);
     
+    // Check if vbus is valid
+    if (!vbus) {
+        pthread_mutex_unlock(&data_mutex);
+        snprintf(json, sizeof(json), "{\"error\":\"System not initialized\"}");
+        return json;
+    }
+    
     #define JSON_APPEND(fmt, ...) do { \
         int written = snprintf(json + offset, remaining, fmt, ##__VA_ARGS__); \
-        if (written >= remaining) { \
+        if (written < 0 || written >= remaining) { \
+            /* Overflow detected - close JSON properly */ \
+            if (offset > 0 && json[offset - 1] == ',') offset--; /* Remove trailing comma */ \
+            int close_written = snprintf(json + offset, remaining, "}"); \
+            if (close_written > 0 && close_written < remaining) { \
+                offset += close_written; \
+            } \
             pthread_mutex_unlock(&data_mutex); \
-            offset = sizeof(json) - 1; \
-            json[offset] = '\0'; \
+            json[sizeof(json) - 1] = '\0'; /* Ensure null termination */ \
             return json; \
         } \
         offset += written; \
@@ -211,8 +223,16 @@ const char* getDashboardHTML() {
 }
 
 const char* getStatusHTML() {
-    static char html[8192];
-    int written = snprintf(html, sizeof(html),
+    static char html[16384]; // Increased buffer size for safety
+    
+    // Check if vbus is valid
+    if (!vbus) {
+        snprintf(html, sizeof(html), 
+                "<!DOCTYPE html><html><body><h1>Error: System not initialized</h1></body></html>");
+        return html;
+    }
+    
+    int written = snprintf(html, sizeof(html) - 1, // Reserve space for null terminator
     "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
     "<title>Viessmann Decoder - Status</title>"
     "<meta name='viewport' content='width=device-width, initial-scale=1'>"
@@ -265,11 +285,11 @@ const char* getStatusHTML() {
     vbus->getVbusStat() ? "OK" : "Error",
     vbus->isReady() ? "Yes" : "No");
     
-    // Check for buffer overflow
-    if (written >= (int)sizeof(html)) {
-        fprintf(stderr, "Warning: HTML buffer overflow prevented\n");
-        // Truncate safely
-        html[sizeof(html) - 1] = '\0';
+    // Ensure null termination and check for overflow
+    html[sizeof(html) - 1] = '\0';
+    if (written < 0 || written >= (int)(sizeof(html) - 1)) {
+        fprintf(stderr, "Warning: HTML buffer overflow detected and handled\n");
+        // Buffer is already null-terminated and truncated
     }
     
     return html;
