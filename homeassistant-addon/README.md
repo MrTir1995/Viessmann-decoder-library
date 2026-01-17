@@ -204,18 +204,17 @@ sensor:
       - relays
     value_template: '{{ value_json.status }}'
     scan_interval: 10
-  
-  - platform: template
-    sensors:
-      viessmann_temp_1:
-        friendly_name: "Boiler Temperature"
+
+template:
+  - sensor:
+      - name: "Boiler Temperature"
+        unique_id: viessmann_temp_1
         unit_of_measurement: "°C"
-        value_template: '{{ state_attr("sensor.viessmann_data", "temperatures")[0] }}'
-      
-      viessmann_pump_1:
-        friendly_name: "Circulation Pump"
+        state: '{{ state_attr("sensor.viessmann_data", "temperatures")[0] }}'
+      - name: "Circulation Pump"
+        unique_id: viessmann_pump_1
         unit_of_measurement: "%"
-        value_template: '{{ state_attr("sensor.viessmann_data", "pumps")[0] }}'
+        state: '{{ state_attr("sensor.viessmann_data", "pumps")[0] }}'
 ```
 
 ### Automation Examples
