@@ -4,7 +4,6 @@
 
 # Documentation (not needed for build)
 *.md
-!viessmann-decoder/README.md
 doc/
 Addon_infos.txt
 
@@ -51,9 +50,3 @@ windows/
 repository.json
 repository.yaml
 logo.png
-
-# Keep only what's needed for the build:
-# - linux/src/
-# - linux/include/
-# - src/
-# - viessmann-decoder/
