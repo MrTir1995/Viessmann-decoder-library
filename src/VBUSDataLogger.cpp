@@ -283,7 +283,11 @@ uint16_t VBUSDataLogger::_getCircularIndex(uint16_t offset) {
   }
 }
 
+// Note: This method is currently unused but reserved for future enhancements
+// that may require more complex statistical calculations beyond what getStatistics() provides
 void VBUSDataLogger::_calculateStats(DataStats& stats, uint16_t startIdx, uint16_t count) {
-  // This method is a placeholder for more complex statistical calculations
-  // Currently using the simpler approach in getStatistics()
+  // Reserved for future use
+  (void)stats;
+  (void)startIdx;
+  (void)count;
 }

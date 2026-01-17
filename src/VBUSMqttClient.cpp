@@ -183,7 +183,7 @@ void VBUSMqttClient::publishHomeAssistantDiscovery() {
     char objectId[32];
     snprintf(objectId, sizeof(objectId), "viessmann_temp_%d", i);
     char name[32];
-    snprintf(objectId, sizeof(name), "Temperature %d", i);
+    snprintf(name, sizeof(name), "Temperature %d", i);
     char valueTopic[64];
     snprintf(valueTopic, sizeof(valueTopic), "%s/temperature/%d", _config.baseTopic, i);
     _publishSensor(name, "temperature", "°C", valueTopic);

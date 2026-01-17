@@ -232,49 +232,56 @@ bool VBUSScheduler::_checkTemperatureRule(const ScheduleRule& rule) {
 }
 
 void VBUSScheduler::_executeAction(const ScheduleRule& rule) {
+  bool success = false;
+  
   switch (rule.action) {
     case ACTION_SET_MODE:
       if (_decoder->getProtocol() == PROTOCOL_KM) {
-        _decoder->setKMBusMode(rule.actionValue1);
+        success = _decoder->setKMBusMode(rule.actionValue1);
       }
       break;
     
     case ACTION_SET_SETPOINT:
       if (_decoder->getProtocol() == PROTOCOL_KM) {
-        _decoder->setKMBusSetpoint(rule.actionValue1, rule.actionValue2);
+        success = _decoder->setKMBusSetpoint(rule.actionValue1, rule.actionValue2);
       }
       break;
     
     case ACTION_ENABLE_ECO:
       if (_decoder->getProtocol() == PROTOCOL_KM) {
-        _decoder->setKMBusEcoMode(true);
+        success = _decoder->setKMBusEcoMode(true);
       }
       break;
     
     case ACTION_DISABLE_ECO:
       if (_decoder->getProtocol() == PROTOCOL_KM) {
-        _decoder->setKMBusEcoMode(false);
+        success = _decoder->setKMBusEcoMode(false);
       }
       break;
     
     case ACTION_ENABLE_PARTY:
       if (_decoder->getProtocol() == PROTOCOL_KM) {
-        _decoder->setKMBusPartyMode(true);
+        success = _decoder->setKMBusPartyMode(true);
       }
       break;
     
     case ACTION_DISABLE_PARTY:
       if (_decoder->getProtocol() == PROTOCOL_KM) {
-        _decoder->setKMBusPartyMode(false);
+        success = _decoder->setKMBusPartyMode(false);
       }
       break;
     
     case ACTION_CALLBACK:
       if (rule.callback) {
         rule.callback(_decoder);
+        success = true;  // Assume callback succeeded
       }
       break;
   }
+  
+  // Log result (optional, can be disabled to save memory)
+  // Users can check success in their own code if needed
+  (void)success;  // Suppress unused variable warning
 }
 
 int8_t VBUSScheduler::_findRuleIndex(uint8_t ruleId) {

@@ -335,7 +335,10 @@ bool VBUSDecoder::_kmSendCommand(uint8_t address, uint8_t command, const uint8_t
   _stream->write(frame, idx);
   _stream->flush();
   
-  // Wait for response (simple implementation)
+  // Wait for transmission to complete
+  // Note: This is a simple blocking wait. For non-blocking applications,
+  // consider implementing an async callback mechanism or removing this delay
+  // and handling response in the main loop.
   delay(100);
   
   return true;
