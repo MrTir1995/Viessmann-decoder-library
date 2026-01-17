@@ -397,7 +397,7 @@ const char* getStatusHTML() {
 
 // Generate Settings Page HTML
 const char* getSettingsHTML() {
-    static char html[16384];
+    static thread_local char html[16384];
     
     if (!vbus) {
         snprintf(html, sizeof(html), 
