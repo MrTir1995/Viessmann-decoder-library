@@ -6,13 +6,27 @@ This directory contains the Home Assistant add-on for the Viessmann Multi-Protoc
 
 ```
 viessmann-decoder/
-├── config.json          # Add-on configuration and metadata
+├── config.yaml          # Add-on configuration and metadata
 ├── build.json           # Docker build configuration
 ├── Dockerfile           # Container build instructions
 ├── run.sh              # Entry point script
 ├── README.md           # User documentation
 ├── DOCS.md             # Brief add-on description
 ├── CHANGELOG.md        # Version history
+├── linux/
+│   ├── src/            # Linux platform implementations
+│   │   ├── Arduino.cpp
+│   │   ├── LinuxSerial.cpp
+│   │   └── vbusdecoder.cpp
+│   └── include/        # Linux platform headers
+│       ├── Arduino.h
+│       ├── LinuxSerial.h
+│       └── vbusdecoder.h
+├── src/                # Core library source
+│   ├── VBUSDataLogger.cpp/.h
+│   ├── VBUSMqttClient.cpp/.h
+│   ├── VBUSScheduler.cpp/.h
+│   └── vbusdecoder.cpp/.h
 └── webserver/
     └── main.cpp        # C++ web server implementation
 ```
@@ -24,20 +38,14 @@ The `build.json` file specifies how Home Assistant Supervisor should build the D
 ```json
 {
   "build_from": { ... },
-  "context": "..",
-  "dockerfile": "viessmann-decoder/Dockerfile"
+  "squash": false,
+  "args": {}
 }
 ```
 
-**Important**: The `context` is set to `".."` (parent directory) because the add-on needs access to source files in the repository root:
-- `linux/src/` - Linux-specific implementations
-- `linux/include/` - Header files
-- `src/` - Core library source
-- `viessmann-decoder/webserver/` - Web server implementation
+**Note**: The addon is self-contained with all necessary source files included in the addon directory. This ensures compatibility with Home Assistant Supervisor's build process which does not support parent directory context access.
 
-The `dockerfile` parameter specifies the exact path to the Dockerfile relative to the build context.
-
-This configuration allows the add-on to be built directly from the Home Assistant Supervisor while accessing the shared library code.
+All source files needed for building are copied from the repository root into the addon directory structure, making the addon fully portable and buildable without external dependencies.
 
 ## Building the Add-on
 
@@ -46,10 +54,13 @@ This configuration allows the add-on to be built directly from the Home Assistan
 To build the add-on locally for testing:
 
 ```bash
+# Navigate to the addon directory
+cd viessmann-decoder
+
 # Build for your architecture
 docker build -t viessmann-decoder \
   --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.18 \
-  -f viessmann-decoder/Dockerfile .
+  .
 
 # Run locally
 docker run -it --rm \
@@ -70,11 +81,13 @@ For publishing to multiple architectures:
 # Install buildx if not already available
 docker buildx create --name multiarch --use
 
+# Navigate to the addon directory
+cd viessmann-decoder
+
 # Build for all architectures
 docker buildx build \
   --platform linux/amd64,linux/arm64,linux/arm/v7 \
   -t ghcr.io/mrtir1995/viessmann-decoder:latest \
-  -f viessmann-decoder/Dockerfile \
   --push .
 ```
 
@@ -126,10 +139,13 @@ The webserver source is in `webserver/main.cpp`. After making changes:
 ### Testing
 
 ```bash
+# Navigate to the addon directory
+cd viessmann-decoder
+
 # Build the container
 docker build -t viessmann-decoder-test \
   --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.18 \
-  -f viessmann-decoder/Dockerfile .
+  .
 
 # Run with test configuration
 docker run -it --rm \
@@ -149,10 +165,12 @@ The add-on uses:
 
 ### Build Fails
 
-Check that all source files are present:
-- `src/` - Library source code
+The addon is now self-contained with all source files included within the addon directory:
+- `src/` - Core library source code
 - `linux/src/` and `linux/include/` - Linux wrappers
-- `viessmann-decoder/webserver/main.cpp` - Webserver
+- `webserver/main.cpp` - Webserver implementation
+
+If the build fails, verify all these directories and files are present in the addon directory.
 
 ### Serial Port Access
 
