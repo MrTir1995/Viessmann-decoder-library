@@ -1,0 +1,37 @@
+{
+  "name": "Viessmann Decoder",
+  "version": "2.1.0",
+  "slug": "viessmann-decoder",
+  "description": "Monitor and configure Viessmann heating systems via VBUS, KW-Bus, P300, and KM-Bus protocols",
+  "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+  "url": "https://github.com/MrTir1995/Viessmann-decoder-library",
+  "startup": "application",
+  "boot": "auto",
+  "init": false,
+  "ports": {
+    "8099": 8099
+  },
+  "ports_description": {
+    "8099": "Web interface"
+  },
+  "devices": [
+    "/dev/ttyUSB0",
+    "/dev/ttyUSB1",
+    "/dev/ttyACM0",
+    "/dev/ttyAMA0"
+  ],
+  "privileged": ["SYS_RAWIO"],
+  "options": {
+    "serial_port": "/dev/ttyUSB0",
+    "baud_rate": 9600,
+    "protocol": "vbus",
+    "serial_config": "8N1"
+  },
+  "schema": {
+    "serial_port": "str",
+    "baud_rate": "int(2400,115200)",
+    "protocol": "list(vbus|kw|p300|km)",
+    "serial_config": "list(8N1|8E2)"
+  },
+  "image": "ghcr.io/mrtir1995/viessmann-decoder-{arch}"
+}
