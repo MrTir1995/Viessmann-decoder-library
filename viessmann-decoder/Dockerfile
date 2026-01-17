@@ -14,11 +14,11 @@ RUN apk add --no-cache \
 # Set working directory
 WORKDIR /build
 
-# Copy source files
+# Copy source files (now using local addon directory structure)
 COPY linux/src /build/src
 COPY linux/include /build/include
 COPY src /build/library_src
-COPY viessmann-decoder/webserver /build/webserver
+COPY webserver /build/webserver
 
 # Build the library
 WORKDIR /build/library_src
@@ -55,8 +55,8 @@ RUN mkdir -p /etc/s6-overlay/s6-rc.d/viessmann-webserver && \
     touch /etc/s6-overlay/s6-rc.d/viessmann-webserver/dependencies.d/base && \
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/viessmann-webserver
 
-# Create S6 service run script
-COPY viessmann-decoder/run.sh /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
+# Create S6 service run script (now using local addon directory structure)
+COPY run.sh /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
 RUN chmod +x /etc/s6-overlay/s6-rc.d/viessmann-webserver/run
 
 # Health check to monitor webserver availability (curl is kept for healthcheck)
