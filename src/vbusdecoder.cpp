@@ -843,14 +843,14 @@ void VBUSDecoder::_kwSyncHandler() {
 // Format: 0x01 <len> <data...> <checksum>
 void VBUSDecoder::_kwReceiveHandler() {
   while (_stream->available() > 0) {
-    uint8_t rcvByte = _stream->read();
-    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
-    
-    // Prevent buffer overflow
+    // Prevent buffer overflow before writing
     if (_rcvBufferIdx >= MAX_BUFFER_SIZE) {
       _state = ERROR;
       return;
     }
+    
+    uint8_t rcvByte = _stream->read();
+    _rcvBuffer[_rcvBufferIdx++] = rcvByte;
     
     // Check if we have at least sync + length byte
     if (_rcvBufferIdx >= 2) {
