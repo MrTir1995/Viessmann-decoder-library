@@ -6,13 +6,6 @@
 *.md
 !viessmann-decoder/README.md
 doc/
-ARCHITECTURE.md
-ENHANCEMENT_SUMMARY.md
-IMPLEMENTATION_SUMMARY.md
-MERGE_SUMMARY.md
-MIGRATION.md
-PROTOCOLS.md
-RELEASE_NOTES_2.1.0.md
 Addon_infos.txt
 
 # Examples (not needed for runtime)
