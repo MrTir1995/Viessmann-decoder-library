@@ -1,0 +1,66 @@
+# Git directory
+.git/
+.gitignore
+
+# Documentation (not needed for build)
+*.md
+!viessmann-decoder/README.md
+doc/
+ARCHITECTURE.md
+ENHANCEMENT_SUMMARY.md
+IMPLEMENTATION_SUMMARY.md
+MERGE_SUMMARY.md
+MIGRATION.md
+PROTOCOLS.md
+RELEASE_NOTES_2.1.0.md
+Addon_infos.txt
+
+# Examples (not needed for runtime)
+examples/
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.exe
+*.out
+linux/build/
+windows/build/
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Windows-specific files (not needed for Linux addon)
+windows/
+
+# Repository metadata files
+repository.json
+repository.yaml
+logo.png
+
+# Keep only what's needed for the build:
+# - linux/src/
+# - linux/include/
+# - src/
+# - viessmann-decoder/
