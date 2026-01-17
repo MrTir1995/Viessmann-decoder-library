@@ -239,7 +239,7 @@ float VBUSDecoder::getKMBusDepartureTemp() const {
   return _kmBusDepartureTemp;
 }
 
-// CRC calculator - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
+// CRC calculator - coming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Crc;
     uint8_t i;
@@ -250,7 +250,7 @@ uint8_t VBUSDecoder::_calcCRC(const uint8_t *Buffer, uint8_t Offset, uint8_t Len
     return Crc;
 }
 
-// Septed injection - comming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
+// Septed injection - coming from: http://danielwippermann.github.io/resol-vbus/vbus-specification.html
 void VBUSDecoder::_septetInject(uint8_t *Buffer, uint8_t Offset, uint8_t Length) {
     uint8_t Septett;
     uint8_t i;
@@ -263,7 +263,7 @@ void VBUSDecoder::_septetInject(uint8_t *Buffer, uint8_t Offset, uint8_t Length)
     }
 }
 
-// Temperature calculation - comming from: https://github.com/bbqkees/vbus-arduino-domoticz/blob/master/ArduinoVBusDecoder.ino
+// Temperature calculation - coming from: https://github.com/bbqkees/vbus-arduino-domoticz/blob/master/ArduinoVBusDecoder.ino
 // It converts 2 data bytes to temperature
 float VBUSDecoder::_calcTemp(uint8_t Byte1, uint8_t Byte2) {
   int16_t v;
