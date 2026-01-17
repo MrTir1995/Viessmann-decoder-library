@@ -217,7 +217,7 @@ void loop() {
 
 **Protocol Type:** `PROTOCOL_KM`
 
-**Description:** Viessmann proprietary 2-wire communication bus for connecting controllers, expansion modules, and remote controls. KM-Bus is used primarily for user interface devices like the Vitotrol remote controls and expansion modules.
+**Description:** Viessmann proprietary 2-wire communication bus for connecting controllers, expansion modules, and remote controls. KM-Bus is used primarily for user interface devices like the Vitotrol remote controls and expansion modules. **Fully implemented** with status record decoding, temperature extraction, and pump/burner status monitoring.
 
 **Physical Layer:**
 - Similar to M-Bus (Meter-Bus) standard
@@ -228,16 +228,64 @@ void loop() {
 
 **Frame Format (M-Bus Long Frame):**
 ```
-Start: 0x68
-Length: <byte>
-Length: <byte> (repeated)
-Start: 0x68 (repeated)
-Control: <byte>
-Address: <byte>
-Data: <n bytes>
-Checksum: Sum of control + address + data
-Stop: 0x16
+Start:     0x68
+Length:    <byte>
+Length:    <byte> (repeated)
+Start:     0x68 (repeated)
+Control:   <byte> (command type)
+Address:   <byte> (internal slot/circuit)
+Data:      <n bytes>
+Checksum:  <2 bytes> CRC-16 (polynomial 0x1021, reflected)
+Stop:      0x16
 ```
+
+**Device Classes:**
+- `0x00` - VITOTRONIC (controller/master)
+- `0x04` - INT_EXTENSION (internal extension module)
+- `0x11` - VITOTROL (remote control)
+- `0xFF` - BROADCAST
+
+**Command Types:**
+- `0x00` - PING (polling request)
+- `0x80` - PONG (polling response)
+- `0x31` - RD1_REQ (read 1 byte request)
+- `0x33` - RDN_REQ (read N bytes request)
+- `0x3F` - RDR_REQ (read record request)
+- `0xB1` - WR1_DAT (write 1 byte data)
+- `0xB3` - WRN_DAT (write N bytes data)
+- `0xBF` - WRR_DAT (write record data - status records)
+
+**Register Addresses:**
+- **Status Records:**
+  - `0x1C` - Master status
+  - `0x1D` - Circuit 1 status
+  - `0x1E` - Circuit 2 status
+  - `0x1F` - Circuit 3 status
+- **Command Records:**
+  - `0x14` - Master commands
+  - `0x15` - Circuit 1 commands
+  - `0x16` - Circuit 2 commands
+  - `0x17` - Circuit 3 commands
+- **Ambient Temperature:**
+  - `0x20` - Circuit 1 ambient
+  - `0x21` - Circuit 2 ambient
+  - `0x22` - Circuit 3 ambient
+
+**Data Encoding:**
+- All data bytes in WRR (Write Record) commands are XOR-encoded with `0xAA`
+- Temperatures: Raw value × 0.5 = Temperature in °C
+- CRC-16: Calculated with polynomial 0x1021, input and output reflected
+
+**Supported Data Fields:**
+- Boiler temperature
+- Hot water (ECS) temperature
+- Outdoor temperature
+- Setpoint temperature
+- Departure/flow temperature
+- Burner status (on/off)
+- Main circulation pump status
+- Hot water loop pump status
+- Operating mode (off, night, day, eco, party)
 
 **Supported Devices:**
 - Vitotronic controllers with KM-Bus terminals
@@ -271,14 +319,45 @@ void loop() {
   decoder.loop();
   
   if (decoder.isReady()) {
-    Serial.println("KM-Bus data received");
-    // Process data according to device protocol
+    Serial.println("=== KM-Bus Status ===");
     
-    // Check for available data
-    if (decoder.getTempNum() > 0) {
-      Serial.print("Temperature from remote: ");
-      Serial.println(decoder.getTemp(0));
-    }
+    // Read temperatures using standard methods
+    Serial.print("Boiler temp: ");
+    Serial.print(decoder.getTemp(0));
+    Serial.println(" °C");
+    
+    Serial.print("Hot water temp: ");
+    Serial.print(decoder.getTemp(1));
+    Serial.println(" °C");
+    
+    Serial.print("Outdoor temp: ");
+    Serial.print(decoder.getTemp(2));
+    Serial.println(" °C");
+    
+    Serial.print("Setpoint temp: ");
+    Serial.print(decoder.getTemp(3));
+    Serial.println(" °C");
+    
+    Serial.print("Departure temp: ");
+    Serial.print(decoder.getTemp(4));
+    Serial.println(" °C");
+    
+    // Read pump and burner status using standard methods
+    Serial.print("Main pump: ");
+    Serial.println(decoder.getPump(0) > 0 ? "ON" : "OFF");
+    
+    Serial.print("Loop pump: ");
+    Serial.println(decoder.getPump(1) > 0 ? "ON" : "OFF");
+    
+    Serial.print("Burner: ");
+    Serial.println(decoder.getRelay(0) ? "ON" : "OFF");
+    
+    // Or use KM-Bus specific methods
+    Serial.print("Burner (specific): ");
+    Serial.println(decoder.getKMBusBurnerStatus() ? "ON" : "OFF");
+    
+    Serial.print("Operating mode: 0x");
+    Serial.println(decoder.getKMBusMode(), HEX);
   }
 }
 ```
@@ -303,12 +382,23 @@ When connecting multiple KM-Bus devices (e.g., multiple remote controls or a rem
 4. **Schaltmodul-V**: Switching module for additional outputs
 5. **AM1 Expansion**: Additional mixer circuit control
 
+**Operating Modes:**
+- `0x00` - Off/standby
+- `0x08` - Night/reduced temperature
+- `0x84` - Day/comfort temperature
+- `0xC6` - Eco mode
+- `0x86` - Party mode
+
+**Status Bits:**
+- `0x04` - Burner active
+- `0x80` - Main circulation pump active
+- `0x40` - Hot water loop pump active
+
 **Notes:**
-- KM-Bus implementation in this library is currently a basic framework
-- Full implementation requires detailed protocol specification from Viessmann
-- Physical interface may require special transceiver chip for proper voltage levels
-- Cable length is limited (typically up to 50 meters)
-- The protocol is primarily used for configuration and user interface, not real-time data
+- KM-Bus implementation is now fully functional with data extraction from status records
+- Temperatures are decoded with 0.5°C resolution
+- All data is XOR-encoded with 0xAA and must be decoded
+- CRC-16 validation ensures data integrity
 - For Vitotronic 200 KW1 integration details, see doc/VITOTRONIC_200_KW1.md
 
 **Bus Addressing:**
@@ -323,6 +413,9 @@ When connecting multiple KM-Bus devices (e.g., multiple remote controls or a rem
 - When in doubt, contact Viessmann technical support or qualified installer
 - This bus is not suitable for high-speed data transfer
 - Primarily designed for configuration and monitoring applications
+
+**Implementation Based On:**
+This implementation is based on the excellent work from the boblegal31/Heater-remote project (https://github.com/boblegal31/Heater-remote) which provides detailed KM-Bus protocol analysis and implementation.
 
 ---
 
