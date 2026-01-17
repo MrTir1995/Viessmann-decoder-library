@@ -50,3 +50,11 @@ windows/
 repository.json
 repository.yaml
 logo.png
+
+# Explicitly include essential viessmann-decoder files (override any exclusions above)
+!viessmann-decoder/run.sh
+!viessmann-decoder/build.sh
+!viessmann-decoder/Dockerfile
+!viessmann-decoder/config.yaml
+!viessmann-decoder/build.json
+!viessmann-decoder/webserver/
