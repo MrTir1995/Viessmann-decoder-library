@@ -1,5 +1,3 @@
-![Logo](logo.png)
-
 # Viessmann Decoder Add-on
 
 Monitor your Viessmann heating system from Home Assistant
