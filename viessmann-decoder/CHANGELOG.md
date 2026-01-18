@@ -8,7 +8,7 @@ All notable changes to the Viessmann Decoder Home Assistant Add-on will be docum
 - Fixed "/bin/sh: can't open '/init': Permission denied" error by ensuring `init: false` in config.yaml
   - S6-Overlay v3 requires running as PID 1, which is prevented when `init: true` causes Docker to inject tini as PID 1
   - With `init: false`, the Home Assistant base image's S6-Overlay properly initializes as PID 1
-  - Added explicit `chmod a+x` in Dockerfile to ensure run.sh has execute permissions
+  - Dockerfile includes `chmod a+x /run.sh` to ensure run.sh has execute permissions
   - See: https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/
 
 ## [2.1.0] - 2026-01-17

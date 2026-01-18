@@ -130,7 +130,7 @@ The addon has been analyzed against all major sections of the guide and updated 
 - The `CMD ["/run.sh"]` approach is supported and works correctly with S6-Overlay v3
 - The run.sh script uses Bashio with the `with-contenv` shebang for proper environment handling
 
-**Key Point:** The S6-Overlay v3 service directory structure (`/etc/s6-overlay/s6-rc.d/`) is optional for simple addons. Using `CMD ["/run.sh"]` with `init: false` is the recommended approach for single-service addons according to Home Assistant documentation.
+**Key Point:** The S6-Overlay v3 service directory structure (`/etc/s6-overlay/s6-rc.d/`) is optional for simple addons. Using `CMD ["/run.sh"]` with `init: false` is a supported approach for single-service addons. See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
 
 ---
 
@@ -327,7 +327,7 @@ To fully validate these changes, the following tests should be performed:
 1. **Container Startup Test**
    ```bash
    # Inside container
-   ps aux  # Should show run.sh and viessmann_webserver running
+   ps aux  # Should show viessmann_webserver running (run.sh exec's into it)
    ```
 
 2. **AppArmor Test**
