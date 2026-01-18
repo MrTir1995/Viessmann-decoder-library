@@ -2,15 +2,14 @@
 
 All notable changes to the Viessmann Decoder Home Assistant Add-on will be documented in this file.
 
-## [Unreleased]
+## [2.1.1] - 2026-01-18
 
 ### Fixed
-- Fixed "/bin/sh: can't open '/init': Permission denied" error by properly integrating with S6-Overlay v3
-  - Removed incorrect `chmod /init` commands from Dockerfile (init binary doesn't exist at build time)
-  - Removed `init: false` from config.yaml to allow proper S6-Overlay operation
-  - Removed `CMD ["/run.sh"]` from Dockerfile that was conflicting with S6-Overlay
-  - Restructured addon to use proper S6-Overlay service directory (`/etc/services.d/viessmann-decoder/run`)
-  - S6-Overlay v3 now correctly manages the service as PID 1
+- Fixed "[FATAL tini (7)] exec /init failed: Permission denied" error by properly configuring S6-Overlay v3 integration
+  - Added `init: false` to config.yaml to prevent Docker's tini from conflicting with S6-Overlay
+  - S6-Overlay v3 in Home Assistant base images requires `init: false` so it can run as PID 1
+  - Service script already has proper executable permissions (755) in `/etc/services.d/viessmann-decoder/run`
+  - Verified against official Home Assistant addon examples (mosquitto, mariadb, example addon)
   - See: https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/
 
 ## [2.1.0] - 2026-01-17
