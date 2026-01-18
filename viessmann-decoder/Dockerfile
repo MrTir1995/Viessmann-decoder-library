@@ -55,7 +55,7 @@ COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 # Re-apply /init execute permission at the end in case earlier layers reset it
-RUN test -x /init || chmod 0755 /init
+RUN chmod 0755 /init
 
 # Health check to monitor webserver availability (curl is kept for healthcheck)
 # Increased tolerance: 60s start period, 5 retries to avoid false positives triggering restarts
