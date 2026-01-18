@@ -41,44 +41,28 @@ bashio::log.info "Baud Rate: ${BAUD_RATE}"
 bashio::log.info "Protocol: ${PROTOCOL}"
 bashio::log.info "Serial Config: ${SERIAL_CONFIG}"
 
-# Wait for serial port to become available (retry up to 30 seconds)
-RETRY_COUNT=0
-MAX_RETRIES=30
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if bashio::fs.file_exists "${SERIAL_PORT}"; then
-        # Try to open the serial port
-        if exec 3<>"${SERIAL_PORT}" 2>/dev/null; then
-            exec 3>&-
-            bashio::log.info "Serial port ${SERIAL_PORT} is available"
-            break
-        fi
+# Check serial port availability (informational only - webserver will handle reconnection)
+if bashio::fs.file_exists "${SERIAL_PORT}"; then
+    if exec 3<>"${SERIAL_PORT}" 2>/dev/null; then
+        exec 3>&-
+        bashio::log.info "Serial port ${SERIAL_PORT} is available"
+    else
+        bashio::log.warning "Serial port ${SERIAL_PORT} exists but cannot be opened"
+        bashio::log.warning "The web interface will show 'Serial port not connected'"
     fi
-    
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    if [ $RETRY_COUNT -eq 1 ]; then
-        bashio::log.warning "Serial port ${SERIAL_PORT} not available, waiting..."
-        bashio::log.info "Available serial ports:"
-        ls -la /dev/tty* 2>/dev/null | head -20 || bashio::log.warning "Could not list serial ports"
-    fi
-    
-    if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-        sleep 1
-    fi
-done
-
-if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
-    bashio::log.error "Serial port ${SERIAL_PORT} not available after ${MAX_RETRIES} seconds"
-    bashio::log.error "Please check that the device is connected and properly configured"
-    bashio::log.error "Available serial ports:"
-    ls -la /dev/tty* 2>/dev/null || bashio::log.error "No serial ports found"
-    bashio::exit.nok
+else
+    bashio::log.warning "Serial port ${SERIAL_PORT} not found"
+    bashio::log.warning "The web interface will show 'Serial port not connected'"
+    bashio::log.info "Available serial ports:"
+    ls -la /dev/tty* 2>/dev/null | head -20 || bashio::log.warning "Could not list serial ports"
 fi
 
 # Log startup completion
-bashio::log.info "Starting webserver with validated configuration..."
+bashio::log.info "Starting webserver..."
 bashio::log.info "Webserver will be available at http://localhost:8099"
+bashio::log.info "If serial port is not connected, the GUI will display 'Serial port not connected'"
 
-# Run the webserver
+# Run the webserver (it will handle serial port connection/reconnection internally)
 exec viessmann_webserver \
     -p "${SERIAL_PORT}" \
     -b "${BAUD_RATE}" \

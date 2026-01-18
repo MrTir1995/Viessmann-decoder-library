@@ -33,6 +33,7 @@ struct Config {
 
 // Global variables
 volatile bool running = true;
+volatile bool serialConnected = false;
 LinuxSerial vbusSerial;
 VBUSDecoder* vbus = nullptr;
 Config config;
@@ -77,10 +78,17 @@ char* generateDataJSON() {
     
     pthread_mutex_lock(&data_mutex);
     
+    // Check if serial port is connected
+    if (!serialConnected) {
+        pthread_mutex_unlock(&data_mutex);
+        snprintf(json, sizeof(json), "{\"error\":\"Serial port not connected\",\"serialConnected\":false,\"ready\":false,\"status\":\"Disconnected\",\"protocol\":%d,\"temperatures\":[],\"pumps\":[],\"relays\":[]}", config.protocol);
+        return json;
+    }
+    
     // Check if vbus is valid
     if (!vbus) {
         pthread_mutex_unlock(&data_mutex);
-        snprintf(json, sizeof(json), "{\"error\":\"System not initialized\"}");
+        snprintf(json, sizeof(json), "{\"error\":\"System not initialized\",\"serialConnected\":false,\"ready\":false,\"status\":\"Error\",\"protocol\":%d,\"temperatures\":[],\"pumps\":[],\"relays\":[]}", config.protocol);
         return json;
     }
     
@@ -102,6 +110,7 @@ char* generateDataJSON() {
     } while(0)
     
     JSON_APPEND("{");
+    JSON_APPEND("\"serialConnected\":true,");
     JSON_APPEND("\"ready\":%s,", vbus->isReady() ? "true" : "false");
     JSON_APPEND("\"status\":\"%s\",", vbus->getVbusStat() ? "OK" : "Error");
     JSON_APPEND("\"protocol\":%d,", config.protocol);
@@ -213,11 +222,19 @@ const char* getDashboardHTML() {
     "const statusDot=document.getElementById('statusDot');"
     "const statusText=document.getElementById('statusText');"
     "const protocolText=document.getElementById('protocol');"
+    "const container=document.getElementById('sensorData');"
+    "if(d.serialConnected===false){"
+    "statusDot.className='status-indicator error';"
+    "statusText.textContent='Serial port not connected';"
+    "const protocols=['VBUS','KW-Bus','P300','KM-Bus'];"
+    "protocolText.textContent=protocols[d.protocol]||'Unknown';"
+    "container.innerHTML='<div class=\"empty-state\"><div class=\"empty-state-icon\">🔌</div><div style=\"font-size:18px;margin-bottom:8px;\">Serial port not connected</div><div style=\"color:var(--secondary-text);\">Please connect your Viessmann device and check the serial port configuration.</div></div>';"
+    "return;"
+    "}"
     "statusDot.className='status-indicator '+(d.status==='OK'?'ok':'error');"
     "statusText.textContent=d.status;"
     "const protocols=['VBUS','KW-Bus','P300','KM-Bus'];"
     "protocolText.textContent=protocols[d.protocol]||'Unknown';"
-    "const container=document.getElementById('sensorData');"
     "if(!d.ready||(!d.temperatures.length&&!d.pumps.length&&!d.relays.length)){"
     "container.innerHTML='<div class=\"empty-state\"><div class=\"empty-state-icon\">⏳</div><div>Waiting for data...</div></div>';"
     "return;"
@@ -779,19 +796,22 @@ int main(int argc, char* argv[]) {
     printf("Web Port: %d\n", config.webPort);
     printf("\n");
     
-    // Initialize serial port
-    if (!vbusSerial.begin(config.serialPort, config.baudRate, config.serialConfig)) {
-        fprintf(stderr, "Error: Failed to open serial port %s\n", config.serialPort);
-        return 1;
+    // Try to initialize serial port (don't exit on failure)
+    if (vbusSerial.begin(config.serialPort, config.baudRate, config.serialConfig)) {
+        printf("Serial port opened successfully\n");
+        serialConnected = true;
+        
+        // Initialize decoder
+        vbus = new VBUSDecoder(&vbusSerial);
+        vbus->begin((ProtocolType)config.protocol);
+        printf("Decoder initialized with protocol: %s\n", getProtocolName(config.protocol));
+    } else {
+        fprintf(stderr, "Warning: Failed to open serial port %s - starting in disconnected mode\n", config.serialPort);
+        fprintf(stderr, "The web interface will show 'Serial port not connected'\n");
+        serialConnected = false;
     }
-    printf("Serial port opened successfully\n");
     
-    // Initialize decoder
-    vbus = new VBUSDecoder(&vbusSerial);
-    vbus->begin((ProtocolType)config.protocol);
-    printf("Decoder initialized with protocol: %s\n", getProtocolName(config.protocol));
-    
-    // Start HTTP server
+    // Start HTTP server (always start, even without serial connection)
     struct MHD_Daemon *daemon;
     daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY,
                              config.webPort,
@@ -801,24 +821,51 @@ int main(int argc, char* argv[]) {
     
     if (daemon == NULL) {
         fprintf(stderr, "Error: Failed to start HTTP server on port %d\n", config.webPort);
-        delete vbus;
+        if (vbus) delete vbus;
         return 1;
     }
     
     printf("Web server started on port %d\n", config.webPort);
     printf("Access the dashboard at: http://localhost:%d\n", config.webPort);
+    if (!serialConnected) {
+        printf("Note: Serial port not connected - will retry periodically\n");
+    }
     printf("\nPress Ctrl+C to stop\n\n");
     
-    // Main loop
+    // Main loop with serial port reconnection logic
+    int reconnectCounter = 0;
+    const int RECONNECT_INTERVAL = 500; // Try to reconnect every 5 seconds (500 * 10ms)
+    
     while (running) {
-        vbus->loop();
+        if (serialConnected && vbus) {
+            vbus->loop();
+        } else {
+            // Try to reconnect periodically
+            reconnectCounter++;
+            if (reconnectCounter >= RECONNECT_INTERVAL) {
+                reconnectCounter = 0;
+                printf("Attempting to reconnect to serial port %s...\n", config.serialPort);
+                
+                if (vbusSerial.begin(config.serialPort, config.baudRate, config.serialConfig)) {
+                    printf("Serial port reconnected successfully!\n");
+                    serialConnected = true;
+                    
+                    // Initialize decoder if not already done
+                    if (!vbus) {
+                        vbus = new VBUSDecoder(&vbusSerial);
+                        vbus->begin((ProtocolType)config.protocol);
+                        printf("Decoder initialized with protocol: %s\n", getProtocolName(config.protocol));
+                    }
+                }
+            }
+        }
         usleep(10000);  // 10ms delay
     }
     
     // Cleanup
     printf("Stopping web server...\n");
     MHD_stop_daemon(daemon);
-    delete vbus;
+    if (vbus) delete vbus;
     
     printf("Shutdown complete\n");
     return 0;
