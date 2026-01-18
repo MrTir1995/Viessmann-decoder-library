@@ -1,5 +1,5 @@
 name: Viessmann Decoder
-version: 2.1.0
+version: 2.1.1
 slug: viessmann-decoder
 description: Monitor and configure Viessmann heating systems via VBUS, KW-Bus, P300, and KM-Bus protocols
 arch:
@@ -30,6 +30,7 @@ host_network: false
 host_dbus: false
 hassio_api: true
 hassio_role: default
+init: false
 options:
   serial_port: /dev/ttyUSB0
   baud_rate: 9600
