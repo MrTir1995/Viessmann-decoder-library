@@ -51,6 +51,9 @@ RUN rm -rf /build /root/.cache && \
 # The rootfs directory structure contains /etc/services.d/ for service management
 COPY rootfs/ /
 
+# Ensure service script is executable
+RUN chmod +x /etc/services.d/viessmann-decoder/run
+
 # Health check to monitor webserver availability (curl is kept for healthcheck)
 # Increased tolerance: 60s start period, 5 retries to avoid false positives triggering restarts
 # Uses /health endpoint which is lightweight and always responds quickly
