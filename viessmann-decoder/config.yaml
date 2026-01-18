@@ -40,8 +40,11 @@ options:
   baud_rate: 9600
   protocol: vbus
   serial_config: 8N1
+  log_level: info
 schema:
   serial_port: device(subsystem=tty)
   baud_rate: list(2400|4800|9600|19200|38400|115200)
   protocol: list(vbus|kw|p300|km)
   serial_config: list(8N1|8E2)
+  log_level: list(trace|debug|info|notice|warning|error|fatal)?
+  log: list(trace|debug|info|notice|warning|error|fatal)?
