@@ -19,8 +19,17 @@
 #include <microhttpd.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <glob.h>
+#include <vector>
+#include <string>
+#include <unordered_set>
 #include "LinuxSerial.h"
 #include "vbusdecoder.h"
+
+constexpr int COMPATIBILITY_ATTEMPTS = 200; // ~2 seconds with 10ms delay
+constexpr useconds_t COMPATIBILITY_DELAY_US = 10000;
+constexpr int RECONNECT_INTERVAL_TICKS = 500; // 5 seconds with 10ms loop delay
+constexpr useconds_t LOOP_DELAY_US = 10000;
 
 // Configuration structure
 struct Config {
@@ -34,10 +43,12 @@ struct Config {
 // Global variables
 volatile bool running = true;
 volatile bool serialConnected = false;
+volatile bool deviceCompatible = false;
 LinuxSerial vbusSerial;
 VBUSDecoder* vbus = nullptr;
 Config config;
 pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
+std::string activeSerialPort;
 
 // Signal handler
 void signalHandler(int signum) {
@@ -70,6 +81,102 @@ uint8_t parseSerialConfig(const char* str) {
     return SERIAL_8N1;
 }
 
+bool portExists(const std::string& port) {
+    struct stat st;
+    return stat(port.c_str(), &st) == 0;
+}
+
+void addPortsFromGlob(const char* pattern, std::vector<std::string>& ports, std::unordered_set<std::string>& seen) {
+    glob_t glob_result = {};
+    int glob_status = glob(pattern, 0, nullptr, &glob_result);
+    if (glob_status == 0) {
+        for (size_t i = 0; i < glob_result.gl_pathc; ++i) {
+            std::string path(glob_result.gl_pathv[i]);
+            if (seen.insert(path).second) {
+                ports.push_back(path);
+            }
+        }
+        globfree(&glob_result);
+    }
+}
+
+std::vector<std::string> discoverSerialPorts() {
+    std::vector<std::string> ports;
+    std::unordered_set<std::string> seen;
+    const bool hasConfiguredPort = config.serialPort && strlen(config.serialPort) > 0;
+    if (hasConfiguredPort && portExists(config.serialPort) && seen.insert(config.serialPort).second) {
+        ports.push_back(config.serialPort);
+    }
+    addPortsFromGlob("/dev/ttyUSB*", ports, seen);
+    addPortsFromGlob("/dev/ttyACM*", ports, seen);
+    addPortsFromGlob("/dev/ttyAMA*", ports, seen);
+    if (ports.empty() && hasConfiguredPort) {
+        ports.push_back(config.serialPort);
+    }
+    return ports;
+}
+
+bool waitForCompatibility(VBUSDecoder* decoder) {
+    if (!decoder) {
+        return false;
+    }
+    for (int i = 0; i < COMPATIBILITY_ATTEMPTS && running; ++i) {
+        decoder->loop();
+        if (decoder->isReady() && decoder->getVbusStat()) {
+            return true;
+        }
+        usleep(COMPATIBILITY_DELAY_US);
+    }
+    return false;
+}
+
+bool attemptConnection(const std::string& port) {
+    if (vbusSerial.isOpen()) {
+        vbusSerial.end();
+    }
+    if (!vbusSerial.begin(port.c_str(), config.baudRate, config.serialConfig)) {
+        fprintf(stderr, "Failed to open serial port %s\n", port.c_str());
+        return false;
+    }
+
+    pthread_mutex_lock(&data_mutex);
+    VBUSDecoder* oldDecoder = vbus;
+    vbus = nullptr;
+    pthread_mutex_unlock(&data_mutex);
+
+    if (oldDecoder) {
+        delete oldDecoder;
+    }
+
+    VBUSDecoder* decoder = new VBUSDecoder(&vbusSerial);
+    decoder->begin((ProtocolType)config.protocol);
+
+    bool compatible = waitForCompatibility(decoder);
+    pthread_mutex_lock(&data_mutex);
+    if (compatible) {
+        vbus = decoder;
+        serialConnected = true;
+        deviceCompatible = true;
+        activeSerialPort = port;
+    } else {
+        delete decoder;
+        vbus = nullptr;
+        serialConnected = false;
+        deviceCompatible = false;
+        activeSerialPort = "";
+    }
+    pthread_mutex_unlock(&data_mutex);
+
+    if (compatible) {
+        printf("Connected to %s and detected compatible frames\n", port.c_str());
+        return true;
+    }
+
+    fprintf(stderr, "No compatible frames detected on %s\n", port.c_str());
+    vbusSerial.end();
+    return false;
+}
+
 // Generate JSON data response
 char* generateDataJSON() {
     static char json[4096];
@@ -77,20 +184,7 @@ char* generateDataJSON() {
     int remaining = sizeof(json) - 1; // Reserve space for null terminator
     
     pthread_mutex_lock(&data_mutex);
-    
-    // Check if serial port is connected
-    if (!serialConnected) {
-        pthread_mutex_unlock(&data_mutex);
-        snprintf(json, sizeof(json), "{\"error\":\"Serial port not connected\",\"serialConnected\":false,\"ready\":false,\"status\":\"Disconnected\",\"protocol\":%d,\"temperatures\":[],\"pumps\":[],\"relays\":[]}", config.protocol);
-        return json;
-    }
-    
-    // Check if vbus is valid
-    if (!vbus) {
-        pthread_mutex_unlock(&data_mutex);
-        snprintf(json, sizeof(json), "{\"error\":\"System not initialized\",\"serialConnected\":false,\"ready\":false,\"status\":\"Error\",\"protocol\":%d,\"temperatures\":[],\"pumps\":[],\"relays\":[]}", config.protocol);
-        return json;
-    }
+    VBUSDecoder* decoder = vbus;
     
     #define JSON_APPEND(fmt, ...) do { \
         int written = snprintf(json + offset, remaining, fmt, ##__VA_ARGS__); \
@@ -110,40 +204,55 @@ char* generateDataJSON() {
     } while(0)
     
     JSON_APPEND("{");
-    JSON_APPEND("\"serialConnected\":true,");
-    JSON_APPEND("\"ready\":%s,", vbus->isReady() ? "true" : "false");
-    JSON_APPEND("\"status\":\"%s\",", vbus->getVbusStat() ? "OK" : "Error");
+    const char* status = "Disconnected";
+    if (serialConnected && deviceCompatible && decoder) {
+        status = decoder->getVbusStat() ? "OK" : "Error";
+    }
+
+    JSON_APPEND("\"serialConnected\":%s,", serialConnected ? "true" : "false");
+    JSON_APPEND("\"compatible\":%s,", deviceCompatible ? "true" : "false");
+    JSON_APPEND("\"serialPort\":\"%s\",", activeSerialPort.empty() ? "" : activeSerialPort.c_str());
+    JSON_APPEND("\"ready\":%s,", (decoder && serialConnected && deviceCompatible && decoder->isReady()) ? "true" : "false");
+    JSON_APPEND("\"status\":\"%s\",", status);
     JSON_APPEND("\"protocol\":%d,", config.protocol);
+    
+    if (!serialConnected || !decoder || !deviceCompatible) {
+        JSON_APPEND("\"temperatures\":[],\"pumps\":[],\"relays\":[]");
+        pthread_mutex_unlock(&data_mutex);
+        JSON_APPEND("}");
+        #undef JSON_APPEND
+        return json;
+    }
     
     // Temperatures
     JSON_APPEND("\"temperatures\":[");
-    if (vbus->isReady()) {
-        uint8_t tempNum = vbus->getTempNum();
+    if (decoder->isReady()) {
+        uint8_t tempNum = decoder->getTempNum();
         for (uint8_t i = 0; i < tempNum && i < 32; i++) {
             if (i > 0) JSON_APPEND(",");
-            JSON_APPEND("%.1f", vbus->getTemp(i));
+            JSON_APPEND("%.1f", decoder->getTemp(i));
         }
     }
     JSON_APPEND("],");
     
     // Pumps
     JSON_APPEND("\"pumps\":[");
-    if (vbus->isReady()) {
-        uint8_t pumpNum = vbus->getPumpNum();
+    if (decoder->isReady()) {
+        uint8_t pumpNum = decoder->getPumpNum();
         for (uint8_t i = 0; i < pumpNum && i < 32; i++) {
             if (i > 0) JSON_APPEND(",");
-            JSON_APPEND("%d", vbus->getPump(i));
+            JSON_APPEND("%d", decoder->getPump(i));
         }
     }
     JSON_APPEND("],");
     
     // Relays
     JSON_APPEND("\"relays\":[");
-    if (vbus->isReady()) {
-        uint8_t relayNum = vbus->getRelayNum();
+    if (decoder->isReady()) {
+        uint8_t relayNum = decoder->getRelayNum();
         for (uint8_t i = 0; i < relayNum && i < 32; i++) {
             if (i > 0) JSON_APPEND(",");
-            JSON_APPEND("%s", vbus->getRelay(i) ? "true" : "false");
+            JSON_APPEND("%s", decoder->getRelay(i) ? "true" : "false");
         }
     }
     JSON_APPEND("]");
@@ -809,18 +918,17 @@ int main(int argc, char* argv[]) {
     printf("\n");
     
     // Try to initialize serial port (don't exit on failure)
-    if (vbusSerial.begin(config.serialPort, config.baudRate, config.serialConfig)) {
-        printf("Serial port opened successfully\n");
-        serialConnected = true;
-        
-        // Initialize decoder
-        vbus = new VBUSDecoder(&vbusSerial);
-        vbus->begin((ProtocolType)config.protocol);
-        printf("Decoder initialized with protocol: %s\n", getProtocolName(config.protocol));
-    } else {
-        fprintf(stderr, "Warning: Failed to open serial port %s - starting in disconnected mode\n", config.serialPort);
+    bool connected = false;
+    for (const auto& port : discoverSerialPorts()) {
+        printf("Attempting to connect on %s...\n", port.c_str());
+        if (attemptConnection(port)) {
+            connected = true;
+            break;
+        }
+    }
+    if (!connected) {
+        fprintf(stderr, "Warning: No compatible serial device found - starting in disconnected mode\n");
         fprintf(stderr, "The web interface will show 'Serial port not connected'\n");
-        serialConnected = false;
     }
     
     // Start HTTP server (always start, even without serial connection)
@@ -846,40 +954,28 @@ int main(int argc, char* argv[]) {
     
     // Main loop with serial port reconnection logic
     int reconnectCounter = 0;
-    const int RECONNECT_INTERVAL = 500; // Try to reconnect every 5 seconds (500 * 10ms)
     
     while (running) {
-        if (serialConnected && vbus) {
+        if (serialConnected && vbus && deviceCompatible) {
             vbus->loop();
         } else {
             // Try to reconnect periodically
             reconnectCounter++;
-            if (reconnectCounter >= RECONNECT_INTERVAL) {
+            if (reconnectCounter >= RECONNECT_INTERVAL_TICKS) {
                 reconnectCounter = 0;
-                printf("Attempting to reconnect to serial port %s...\n", config.serialPort);
-                
-                if (vbusSerial.begin(config.serialPort, config.baudRate, config.serialConfig)) {
-                    printf("Serial port reconnected successfully!\n");
-                    
-                    // Initialize decoder if not already done
-                    VBUSDecoder* newVbus = nullptr;
-                    if (!vbus) {
-                        newVbus = new VBUSDecoder(&vbusSerial);
-                        newVbus->begin((ProtocolType)config.protocol);
-                        printf("Decoder initialized with protocol: %s\n", getProtocolName(config.protocol));
+                auto ports = discoverSerialPorts();
+                if (ports.empty() && config.serialPort && strlen(config.serialPort) > 0) {
+                    ports.push_back(config.serialPort);
+                }
+                for (const auto& port : ports) {
+                    printf("Attempting to connect on %s...\n", port.c_str());
+                    if (attemptConnection(port)) {
+                        break;
                     }
-                    
-                    // Update state atomically with mutex
-                    pthread_mutex_lock(&data_mutex);
-                    if (newVbus) {
-                        vbus = newVbus;
-                    }
-                    serialConnected = true;
-                    pthread_mutex_unlock(&data_mutex);
                 }
             }
         }
-        usleep(10000);  // 10ms delay
+        usleep(LOOP_DELAY_US);  // 10ms delay
     }
     
     // Cleanup
