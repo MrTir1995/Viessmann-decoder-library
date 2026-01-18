@@ -52,8 +52,10 @@ COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 # Health check to monitor webserver availability (curl is kept for healthcheck)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8099/ || exit 1
+# Increased tolerance: 60s start period, 5 retries to avoid false positives triggering restarts
+# Uses /health endpoint which is lightweight and always responds quickly
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8099/health || exit 1
 
 # Home Assistant uses s6-overlay v3 which must be PID 1
 # init: false in config.yaml allows s6-overlay to manage the process
