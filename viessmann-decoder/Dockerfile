@@ -11,6 +11,9 @@ RUN apk add --no-cache \
     libmicrohttpd \
     curl
 
+# Ensure s6-overlay init remains executable (prevents /init permission issues)
+RUN chmod 0755 /init
+
 # Set working directory
 WORKDIR /build
 
