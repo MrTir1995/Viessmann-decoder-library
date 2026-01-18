@@ -18,7 +18,7 @@ WORKDIR /build
 COPY linux/src /build/src
 COPY linux/include /build/include
 COPY src /build/library_src
-COPY webserver /build/webserver
+COPY viessmann-decoder/webserver /build/webserver
 
 # Build the library
 WORKDIR /build/library_src
@@ -49,7 +49,7 @@ RUN rm -rf /build /root/.cache && \
 
 # Copy service files for s6-overlay v3
 # The rootfs directory structure contains /etc/services.d/ for service management
-COPY rootfs/ /
+COPY viessmann-decoder/rootfs/ /
 
 # Ensure service script is executable
 RUN chmod +x /etc/services.d/viessmann-decoder/run
