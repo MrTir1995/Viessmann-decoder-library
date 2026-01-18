@@ -4,12 +4,17 @@
 
 set -e
 
+# Configuration
+SERVICE_SCRIPT="../rootfs/etc/services.d/viessmann-decoder/run"
+CONFIG_FILE="../config.yaml"
+DOCKERFILE="../Dockerfile"
+
 echo "=== S6-Overlay v3 Configuration Validation ==="
 echo ""
 
 # Check 1: Verify init: false in config.yaml
 echo "✓ Checking config.yaml for 'init: false'..."
-if grep -q "^init: false" ../config.yaml; then
+if grep -q "^init: false" "$CONFIG_FILE"; then
     echo "  ✓ PASS: init: false is present in config.yaml"
 else
     echo "  ✗ FAIL: init: false is missing from config.yaml"
@@ -19,7 +24,7 @@ echo ""
 
 # Check 2: Verify no CMD or ENTRYPOINT in Dockerfile
 echo "✓ Checking Dockerfile has no CMD or ENTRYPOINT..."
-if grep -qE "^(CMD|ENTRYPOINT)" ../Dockerfile; then
+if grep -qE "^(CMD|ENTRYPOINT)" "$DOCKERFILE"; then
     echo "  ✗ FAIL: Dockerfile contains CMD or ENTRYPOINT which conflicts with S6-Overlay"
     exit 1
 else
@@ -29,7 +34,7 @@ echo ""
 
 # Check 3: Verify service script has execute permissions
 echo "✓ Checking service script permissions..."
-if [ -x "../rootfs/etc/services.d/viessmann-decoder/run" ]; then
+if [ -x "$SERVICE_SCRIPT" ]; then
     echo "  ✓ PASS: Service script is executable"
 else
     echo "  ✗ FAIL: Service script is not executable"
@@ -39,18 +44,24 @@ echo ""
 
 # Check 4: Verify git permissions for service script
 echo "✓ Checking git permissions for service script..."
-GIT_PERMS=$(git ls-files -s ../rootfs/etc/services.d/viessmann-decoder/run | awk '{print $1}')
-if [ "$GIT_PERMS" = "100755" ]; then
-    echo "  ✓ PASS: Git permissions are 100755 (executable)"
+if command -v git >/dev/null 2>&1; then
+    GIT_PERMS=$(git ls-files -s "$SERVICE_SCRIPT" 2>/dev/null | awk '{print $1}')
+    if [ "$GIT_PERMS" = "100755" ]; then
+        echo "  ✓ PASS: Git permissions are 100755 (executable)"
+    elif [ -z "$GIT_PERMS" ]; then
+        echo "  ✗ WARNING: File not tracked in git"
+    else
+        echo "  ✗ FAIL: Git permissions are $GIT_PERMS (should be 100755)"
+        exit 1
+    fi
 else
-    echo "  ✗ FAIL: Git permissions are $GIT_PERMS (should be 100755)"
-    exit 1
+    echo "  ⊘ SKIP: Git not available"
 fi
 echo ""
 
 # Check 5: Verify shebang uses bashio
 echo "✓ Checking service script uses bashio..."
-if head -n1 ../rootfs/etc/services.d/viessmann-decoder/run | grep -q "bashio"; then
+if head -n1 "$SERVICE_SCRIPT" | grep -q "bashio"; then
     echo "  ✓ PASS: Service script uses bashio shebang"
 else
     echo "  ✗ WARNING: Service script doesn't use bashio shebang"

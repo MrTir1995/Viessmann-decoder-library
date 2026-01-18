@@ -252,7 +252,11 @@ This error has been fixed in the latest version of the addon by properly configu
 1. Update the addon to the latest version (v2.1.1 or later)
 2. Restart the addon
 
-**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. The error occurs when Docker's default init system (tini) conflicts with S6-Overlay. The fix is to add `init: false` to the addon's config.yaml, which tells the Supervisor not to inject Docker's init, allowing S6-Overlay to manage the service correctly. The addon uses the proper S6-Overlay service directory structure (`/etc/services.d/viessmann-decoder/run`). See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
+**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. The error occurs when Docker's default init system (tini) conflicts with S6-Overlay. 
+
+The fix is to add `init: false` to the addon's config.yaml. This tells the Supervisor not to inject Docker's init, allowing S6-Overlay to manage the service correctly. 
+
+The addon uses the proper S6-Overlay service directory structure (`/etc/services.d/viessmann-decoder/run`). See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
 
 #### Serial Port Not Found
 
