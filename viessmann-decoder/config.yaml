@@ -24,11 +24,7 @@ ingress_port: 8099
 ingress_panel: true
 panel_icon: mdi:radiator
 watchdog: http://[HOST]:8099/health
-devices:
-  - /dev/ttyUSB0
-  - /dev/ttyUSB1
-  - /dev/ttyACM0
-  - /dev/ttyAMA0
+uart: true
 privileged:
   - SYS_RAWIO
 host_network: false
@@ -42,7 +38,7 @@ options:
   serial_config: 8N1
   log_level: info
 schema:
-  serial_port: device(subsystem=tty)
+  serial_port: str?
   baud_rate: list(2400|4800|9600|19200|38400|115200)
   protocol: list(vbus|kw|p300|km)
   serial_config: list(8N1|8E2)
