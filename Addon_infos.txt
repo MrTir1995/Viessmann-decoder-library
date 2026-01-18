@@ -23,19 +23,19 @@ Der Anzeigename im Store.
 version
 String
 Semantische Versionierung (z.B. 1.0.0). Jede Änderung hier triggert ein Update beim Nutzer.
-[span_7](start_span)[span_7](end_span)slug
+slug
 String
 Eine URL-freundliche, eindeutige ID. Diese wird Teil des Docker-Container-Namens und der Ingress-URL. Sie darf sich niemals ändern, da sonst Datenverlust droht.
-[span_8](start_span)[span_8](end_span)arch
+arch
 Liste
 Definiert kompatible Architekturen (armhf, armv7, aarch64, amd64, i386). Fehlt hier die Architektur des Nutzers, wird das Add-on ausgeblendet.
-[span_9](start_span)[span_9](end_span)startup
+startup
 String
 system (vor HA Core), services (parallel), application (nach HA Core), once (kein Daemon). Kritisch für Abhängigkeiten wie MQTT-Broker.
-[span_10](start_span)[span_10](end_span)boot
+boot
 String
 auto (Start bei Boot) oder manual. manual_only verhindert den Autostart durch Nutzer.
-[span_11](start_span)[span_11](end_span)init
+init
 Bool
 Kritisch für S6 v3: Muss auf false gesetzt werden, um Konflikte mit dem Docker-Init-Prozess zu vermeiden. Sonst droht Fehler s6-overlay-suexec: fatal: can only run as pid 1.
 map
@@ -48,7 +48,7 @@ privileged
 Liste
 Gewährt erweiterte Kernel-Rechte (z.B. NET_ADMIN, SYS_ADMIN). Sollte sparsam verwendet werden.
 
-2.2 Das D[span_13](start_span)[span_13](end_span)ockerfile: Konstruktion und Basis-Images
+2.2 Das Dockerfile: Konstruktion und Basis-Images
 Das Dockerfile instruiert den Builder. Ein "Geheimnis" für effiziente Builds ist die Nutzung der Build Arguments.
 ARG BUILD_FROM
 FROM $BUILD_FROM
