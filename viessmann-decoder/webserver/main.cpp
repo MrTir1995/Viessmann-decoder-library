@@ -220,7 +220,6 @@ char* generateDataJSON() {
         JSON_APPEND("\"temperatures\":[],\"pumps\":[],\"relays\":[]");
         pthread_mutex_unlock(&data_mutex);
         JSON_APPEND("}");
-        #undef JSON_APPEND
         return json;
     }
     
