@@ -23,7 +23,7 @@ ingress: true
 ingress_port: 8099
 ingress_panel: true
 panel_icon: mdi:radiator
-watchdog: tcp://[HOST]:8099
+watchdog: http://[HOST]:8099/health
 devices:
   - /dev/ttyUSB0
   - /dev/ttyUSB1

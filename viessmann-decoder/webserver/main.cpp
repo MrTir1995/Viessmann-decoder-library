@@ -725,6 +725,18 @@ static MHD_Result handle_request(void *cls,
         MHD_destroy_response(response);
         return ret;
     }
+    else if (strcmp(url, "/health") == 0) {
+        // Simple health check endpoint for watchdog and healthcheck
+        // Returns a minimal response to indicate the server is running
+        const char* health_response = "{\"status\":\"ok\"}";
+        response = MHD_create_response_from_buffer(strlen(health_response),
+                                                   (void*)health_response,
+                                                   MHD_RESPMEM_PERSISTENT);
+        MHD_add_response_header(response, "Content-Type", "application/json");
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+        return ret;
+    }
     
     // 404 Not Found
     const char* not_found = "<html><body><h1>404 Not Found</h1></body></html>";
