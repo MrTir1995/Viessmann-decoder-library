@@ -96,8 +96,8 @@ void addPortsFromGlob(const char* pattern, std::vector<std::string>& ports, std:
                 ports.push_back(path);
             }
         }
+        globfree(&glob_result);
     }
-    globfree(&glob_result);
 }
 
 std::vector<std::string> discoverSerialPorts() {
@@ -153,16 +153,17 @@ bool attemptConnection(const std::string& port) {
 
     bool compatible = waitForCompatibility(decoder);
     pthread_mutex_lock(&data_mutex);
-    activeSerialPort = port;
     if (compatible) {
         vbus = decoder;
         serialConnected = true;
         deviceCompatible = true;
+        activeSerialPort = port;
     } else {
         delete decoder;
         vbus = nullptr;
         serialConnected = false;
         deviceCompatible = false;
+        activeSerialPort = "";
     }
     pthread_mutex_unlock(&data_mutex);
 
@@ -206,8 +207,6 @@ char* generateDataJSON() {
     const char* status = "Disconnected";
     if (serialConnected && deviceCompatible && decoder) {
         status = decoder->getVbusStat() ? "OK" : "Error";
-    } else if (!deviceCompatible && !activeSerialPort.empty()) {
-        status = "Incompatible";
     }
 
     JSON_APPEND("\"serialConnected\":%s,", serialConnected ? "true" : "false");
@@ -918,7 +917,6 @@ int main(int argc, char* argv[]) {
     printf("Web Port: %d\n", config.webPort);
     printf("\n");
     
-    activeSerialPort = config.serialPort ? config.serialPort : "";
     // Try to initialize serial port (don't exit on failure)
     bool connected = false;
     for (const auto& port : discoverSerialPorts()) {
@@ -966,16 +964,8 @@ int main(int argc, char* argv[]) {
             if (reconnectCounter >= RECONNECT_INTERVAL_TICKS) {
                 reconnectCounter = 0;
                 auto ports = discoverSerialPorts();
-                if (ports.empty()) {
-                    const char* fallbackPort = "";
-                    if (!activeSerialPort.empty()) {
-                        fallbackPort = activeSerialPort.c_str();
-                    } else if (config.serialPort) {
-                        fallbackPort = config.serialPort;
-                    }
-                    if (strlen(fallbackPort) > 0) {
-                        ports.push_back(fallbackPort);
-                    }
+                if (ports.empty() && config.serialPort && strlen(config.serialPort) > 0) {
+                    ports.push_back(config.serialPort);
                 }
                 for (const auto& port : ports) {
                     printf("Attempting to connect on %s...\n", port.c_str());
