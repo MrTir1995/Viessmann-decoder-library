@@ -14,7 +14,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Check if we're in the right directory
-if [ ! -f "viessmann-decoder/config.json" ]; then
+if [ ! -f "viessmann-decoder/config.yaml" ]; then
     echo -e "${RED}Error: Must be run from repository root${NC}"
     exit 1
 fi

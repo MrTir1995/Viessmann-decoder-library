@@ -816,8 +816,6 @@ int main(int argc, char* argv[]) {
     }
     
     // Cleanup
-    
-    // Cleanup
     printf("Stopping web server...\n");
     MHD_stop_daemon(daemon);
     delete vbus;
