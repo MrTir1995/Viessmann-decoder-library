@@ -133,7 +133,7 @@ The webserver source is in `webserver/main.cpp`. After making changes:
 
 1. Test locally with the build command above
 2. Verify functionality
-3. Update version in `config.json`
+3. Update version in `config.yaml`
 4. Update `CHANGELOG.md`
 
 ### Testing
@@ -174,12 +174,11 @@ If the build fails, verify all these directories and files are present in the ad
 
 ### Serial Port Access
 
-Ensure the device is mapped in `config.json`:
-```json
-"devices": [
-  "/dev/ttyUSB0",
-  "/dev/ttyUSB1"
-]
+Ensure the device is mapped in `config.yaml`:
+```yaml
+devices:
+  - /dev/ttyUSB0
+  - /dev/ttyUSB1
 ```
 
 ### Web Interface Not Accessible
