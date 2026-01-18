@@ -61,3 +61,4 @@ logo.png
 !viessmann-decoder/config.yaml
 !viessmann-decoder/build.json
 !viessmann-decoder/webserver/
+!viessmann-decoder/rootfs/

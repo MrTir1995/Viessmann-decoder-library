@@ -11,9 +11,6 @@ RUN apk add --no-cache \
     libmicrohttpd \
     curl
 
-# Ensure s6-overlay init remains executable (prevents /init permission issues)
-RUN chmod 0755 /init
-
 # Set working directory
 WORKDIR /build
 
@@ -50,12 +47,12 @@ WORKDIR /
 RUN rm -rf /build /root/.cache && \
     apk del --no-cache build-base g++ make linux-headers libmicrohttpd-dev
 
-# Copy the run script to the root directory (Home Assistant addon standard location)
-COPY run.sh /run.sh
-RUN chmod a+x /run.sh
+# Copy service files for s6-overlay v3
+# The rootfs directory structure contains /etc/services.d/ for service management
+COPY rootfs/ /
 
-# Re-apply /init execute permission at the end in case earlier layers reset it
-RUN chmod 0755 /init
+# Ensure service script is executable
+RUN chmod +x /etc/services.d/viessmann-decoder/run
 
 # Health check to monitor webserver availability (curl is kept for healthcheck)
 # Increased tolerance: 60s start period, 5 retries to avoid false positives triggering restarts
@@ -63,7 +60,5 @@ RUN chmod 0755 /init
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
     CMD curl -f http://localhost:8099/health || exit 1
 
-# Home Assistant uses s6-overlay v3 which must be PID 1
-# init: false in config.yaml allows s6-overlay to manage the process
-# Do not set ENTRYPOINT - it conflicts with the Supervisor's management
-CMD ["/run.sh"]
+# S6-Overlay v3 will automatically manage services in /etc/services.d/
+# No CMD or ENTRYPOINT needed - the base image's /init will be used automatically
