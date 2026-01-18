@@ -55,6 +55,7 @@ RUN chmod a+x /run.sh
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8099/ || exit 1
 
-# Home Assistant Supervisor handles the init process when init: true is set in config.yaml
+# Home Assistant uses s6-overlay v3 which must be PID 1
+# init: false in config.yaml allows s6-overlay to manage the process
 # Do not set ENTRYPOINT - it conflicts with the Supervisor's management
 CMD ["/run.sh"]
