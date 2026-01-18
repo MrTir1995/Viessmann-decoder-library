@@ -117,21 +117,20 @@ The addon has been analyzed against all major sections of the guide and updated 
 | Requirement | Status | Implementation |
 |-------------|--------|----------------|
 | init: false in config.yaml | ✅ Yes | Line 14 in config.yaml |
-| /etc/s6-overlay/s6-rc.d/ structure | ✅ Fixed | Created full directory structure |
-| Service type file | ✅ Fixed | Created with "longrun" |
-| Service run script | ✅ Fixed | run.sh in correct location |
-| dependencies.d/ | ✅ Fixed | Depends on base |
-| user bundle integration | ✅ Fixed | Added to contents.d |
-| Executable permissions | ✅ Fixed | chmod +x applied |
+| S6-Overlay v3 compatible | ✅ Yes | Uses CMD ["/run.sh"] with init: false |
+| Executable permissions | ✅ Yes | chmod a+x /run.sh in Dockerfile |
+| Proper shebang | ✅ Yes | #!/usr/bin/with-contenv bashio |
+| Unix line endings | ✅ Yes | LF line endings verified |
 
 **Reference:** Addon_infos.txt lines 109-132
 
-**Changes Made:**
-- Complete S6-Overlay v3 service structure implemented
-- Migrated from legacy CMD approach
-- Proper service dependencies configured
+**Implementation Notes:**
+- Uses `init: false` in config.yaml to prevent Docker from injecting tini as PID 1
+- With `init: false`, the Home Assistant base image's S6-Overlay properly initializes as PID 1
+- The `CMD ["/run.sh"]` approach is supported and works correctly with S6-Overlay v3
+- The run.sh script uses Bashio with the `with-contenv` shebang for proper environment handling
 
-**Critical Fix:** This was a **major architectural issue**. The old implementation would have failed on modern Home Assistant versions using S6-Overlay v3.
+**Key Point:** The S6-Overlay v3 service directory structure (`/etc/s6-overlay/s6-rc.d/`) is optional for simple addons. Using `CMD ["/run.sh"]` with `init: false` is the recommended approach for single-service addons according to Home Assistant documentation.
 
 ---
 
@@ -325,11 +324,10 @@ The addon has been analyzed against all major sections of the guide and updated 
 
 To fully validate these changes, the following tests should be performed:
 
-1. **S6 Service Test**
+1. **Container Startup Test**
    ```bash
    # Inside container
-   s6-rc -a list  # Should show viessmann-webserver
-   s6-svstat /run/service/viessmann-webserver  # Should show running
+   ps aux  # Should show run.sh and viessmann_webserver running
    ```
 
 2. **AppArmor Test**

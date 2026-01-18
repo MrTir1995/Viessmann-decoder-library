@@ -253,7 +253,7 @@ This error occurs when the S6-Overlay v3 init system cannot start properly. This
 2. Ensure `init: false` is set in the addon configuration (this is the default)
 3. Restart the addon
 
-**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. The Dockerfile must include `ENTRYPOINT ["/init"]` for proper operation. See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
+**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. Setting `init: false` in config.yaml allows S6-Overlay to start as PID 1 without Docker injecting tini. The addon's run.sh is then executed by S6-Overlay's service management. See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
 
 #### Serial Port Not Found
 
