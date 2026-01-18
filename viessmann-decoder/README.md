@@ -247,13 +247,12 @@ For issues, questions, or contributions:
 
 #### "/bin/sh: can't open '/init': Permission denied" Error
 
-This error occurs when the S6-Overlay v3 init system cannot start properly. This has been fixed in the latest version of the addon. If you encounter this error:
+This error has been fixed in the latest version of the addon by properly integrating with S6-Overlay v3. If you encounter this error:
 
 1. Update the addon to the latest version
-2. Ensure `init: false` is set in the addon configuration (this is the default)
-3. Restart the addon
+2. Restart the addon
 
-**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. Setting `init: false` in config.yaml allows S6-Overlay to start as PID 1 without Docker injecting tini. The addon's run.sh is then executed by S6-Overlay's service management. See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
+**Technical Details**: Home Assistant's base images use S6-Overlay v3, which requires the `/init` process to run as PID 1. The addon now uses the proper S6-Overlay service directory structure (`/etc/services.d/`) instead of trying to override the init system. This allows S6-Overlay to manage the addon's service correctly. See the [Home Assistant S6-Overlay migration guide](https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/) for more information.
 
 #### Serial Port Not Found
 
