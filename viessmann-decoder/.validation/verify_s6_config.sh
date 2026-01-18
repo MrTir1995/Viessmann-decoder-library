@@ -1,6 +1,9 @@
 #!/bin/bash
 # Validation script for S6-Overlay v3 configuration
 # This verifies the addon is properly configured to avoid tini /init errors
+#
+# USAGE: Run this script from the .validation directory:
+#   cd .validation && ./verify_s6_config.sh
 
 set -e
 
@@ -59,12 +62,12 @@ else
 fi
 echo ""
 
-# Check 5: Verify shebang uses bashio
+# Check 5: Verify first line contains bashio (Home Assistant convention)
 echo "✓ Checking service script uses bashio..."
 if head -n1 "$SERVICE_SCRIPT" | grep -q "bashio"; then
-    echo "  ✓ PASS: Service script uses bashio shebang"
+    echo "  ✓ PASS: Service script first line contains 'bashio'"
 else
-    echo "  ✗ WARNING: Service script doesn't use bashio shebang"
+    echo "  ✗ WARNING: Service script first line doesn't contain 'bashio'"
 fi
 echo ""
 
