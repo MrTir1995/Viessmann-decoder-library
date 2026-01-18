@@ -848,14 +848,22 @@ int main(int argc, char* argv[]) {
                 
                 if (vbusSerial.begin(config.serialPort, config.baudRate, config.serialConfig)) {
                     printf("Serial port reconnected successfully!\n");
-                    serialConnected = true;
                     
                     // Initialize decoder if not already done
+                    VBUSDecoder* newVbus = nullptr;
                     if (!vbus) {
-                        vbus = new VBUSDecoder(&vbusSerial);
-                        vbus->begin((ProtocolType)config.protocol);
+                        newVbus = new VBUSDecoder(&vbusSerial);
+                        newVbus->begin((ProtocolType)config.protocol);
                         printf("Decoder initialized with protocol: %s\n", getProtocolName(config.protocol));
                     }
+                    
+                    // Update state atomically with mutex
+                    pthread_mutex_lock(&data_mutex);
+                    if (newVbus) {
+                        vbus = newVbus;
+                    }
+                    serialConnected = true;
+                    pthread_mutex_unlock(&data_mutex);
                 }
             }
         }
